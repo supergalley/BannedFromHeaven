@@ -35,3 +35,10 @@ archives/**
 *.log
 logs/
 skeleton/
+
+# Static media (not tracked)
+app/static/**/*.png
+app/static/**/*.jpg
+app/static/**/*.jpeg
+app/static/**/*.ico
+app/static/**/*.webp
