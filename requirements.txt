@@ -1,0 +1,7 @@
+bleach==6.1.0
+flask
+flask_sqlalchemy
+flask_login
+gunicorn
+pillow
+requests

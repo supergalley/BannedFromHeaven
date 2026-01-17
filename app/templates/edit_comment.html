@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Edit comment - jokes.supergalley.com{% endblock %}
+
+{% block content %}
+  <h2>Edit comment</h2>
+
+  <form method="post">
+    <div class="mb-3">
+      <textarea name="body" class="form-control" rows="6" required>{{ comment.body }}</textarea>
+    </div>
+
+    <button type="submit" class="btn btn-outline-light">Save</button>
+    <a class="btn btn-secondary" href="{{ url_for('main.joke_detail', joke_id=comment.joke_id) }}">Cancel</a>
+  </form>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Forum - jokes.supergalley.com{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+  <h3 class="mb-0">Forum</h3>
+  {% if current_user.is_authenticated %}
+    <a href="{{ url_for('main.new_thread') }}" class="btn btn-sm btn-primary">
+      New thread
+    </a>
+  {% endif %}
+</div>
+
+{% if threads %}
+  {% for t in threads %}
+    <div class="joke-card d-flex mb-2">
+      <div class="flex-grow-1">
+        <h5>
+          <a href="{{ url_for('main.thread_detail', thread_id=t.id) }}">
+            {{ t.title }}
+          </a>
+        </h5>
+        <small style="color:#bfbfbf; font-size:0.85rem;">
+          {{ t.author.username }}
+
+          {% set medals = user_medals.get(t.author.id) %}
+          {% if medals %}
+            {% if medals.today %}
+              <span class="medal-badge-today"
+                    title="{{ medals.today.tooltip }}"
+                    aria-label="{{ medals.today.tooltip }}">
+                {{ medals.today.icon }}
+              </span>
+            {% endif %}
+            {% if medals.week %}
+              <span class="medal-badge-week"
+                    title="{{ medals.week.tooltip }}"
+                    aria-label="{{ medals.week.tooltip }}">
+                {{ medals.week.icon }}
+              </span>
+            {% endif %}
+            {% if medals.all_time %}
+              <span class="medal-badge-alltime"
+                    title="{{ medals.all_time.tooltip }}"
+                    aria-label="{{ medals.all_time.tooltip }}">
+                {{ medals.all_time.icon }}
+              </span>
+            {% endif %}
+          {% endif %}
+
+          ({{ t.author.reputation or 0 }})
+          · {{ t.created_at.strftime('%d-%m-%Y %H%M') }}
+          · {{ t.replies.count() }} replies
+        </small>
+      </div>
+    </div>
+  {% endfor %}
+{% else %}
+  <p>No threads yet. Internet strangely civilised.</p>
+{% endif %}
+{% endblock %}

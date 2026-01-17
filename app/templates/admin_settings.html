@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Admin – Settings{% endblock %}
+
+{% block content %}
+<h2>Site settings</h2>
+
+<form method="post">
+  <div class="mb-3">
+    <label class="form-label">Max jokes per hour (0 = no limit)</label>
+    <input type="number" name="max_jokes_per_hour" class="form-control"
+           value="{{ settings.max_jokes_per_hour }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Max jokes per day (0 = no limit)</label>
+    <input type="number" name="max_jokes_per_day" class="form-control"
+           value="{{ settings.max_jokes_per_day }}">
+  </div>
+
+  <hr>
+
+  <h5 class="mt-3">Seasonal effects</h5>
+  <div class="mb-3 form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="newyear_force_enabled"
+           name="newyear_force_enabled" {% if settings.newyear_force_enabled %}checked{% endif %}>
+    <label class="form-check-label" for="newyear_force_enabled">
+      Force New Year effects (test mode)
+    </label>
+    <div class="form-text">Shows fireworks + falling “Happy New Year” even outside the scheduled window.</div>
+  </div>
+
+  <div class="mb-3 form-check">
+    <input class="form-check-input" type="checkbox" id="pinned_enabled"
+           name="pinned_enabled" {% if settings.pinned_enabled %}checked{% endif %}>
+    <label class="form-check-label" for="pinned_enabled">Show pinned message on homepage</label>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Pinned title</label>
+    <input type="text" name="pinned_title" class="form-control"
+           value="{{ settings.pinned_title or '' }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Pinned body</label>
+    <textarea name="pinned_body" class="form-control" rows="4">{{ settings.pinned_body or '' }}</textarea>
+  </div>
+
+  <button class="btn btn-primary" type="submit">Save</button>
+</form>
+{% endblock %}

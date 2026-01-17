@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Admin – Categories{% endblock %}
+
+{% block content %}
+<h2>Categories</h2>
+
+<form method="post" class="mb-3">
+  <div class="row">
+    <div class="col-md-3">
+      <input name="slug" class="form-control" placeholder="slug (e.g. knockknock)">
+    </div>
+    <div class="col-md-5">
+      <input name="name" class="form-control" placeholder="Display name (e.g. Knock-Knock Jokes)">
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-primary w-100" type="submit">Add</button>
+    </div>
+  </div>
+</form>
+
+<table class="table table-dark table-sm">
+  <thead>
+    <tr><th>ID</th><th>Slug</th><th>Name</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for c in categories %}
+    <tr>
+      <td>{{ c.id }}</td>
+      <td>{{ c.slug }}</td>
+      <td>{{ c.name }}</td>
+      <td>
+        <form method="post"
+              action="{{ url_for('admin.delete_category', cat_id=c.id) }}"
+              onsubmit="return confirm('Delete category? Jokes will keep their text but lose the category.');">
+          <button class="btn btn-sm btn-danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Forum - jokes.supergalley.com{% endblock %}
+
+{% block content %}
+  <h2>Forum</h2>
+
+  <a href="{{ url_for('forum.new_thread') }}"
+     class="btn btn-sm btn-primary mb-3">
+    New thread
+  </a>
+
+  {% if threads %}
+    {% for t in threads %}
+      <div class="joke-card d-flex {% if t.id in unread_thread_ids %}glow-green{% endif %}">
+        <div class="flex-grow-1">
+          <h5 style="margin-bottom:0.25rem;">
+            <a href="{{ url_for('forum.view_thread', thread_id=t.id) }}">
+              {{ t.title }}
+            </a>
+          </h5>
+        <small style="color:#bfbfbf; font-size:0.85rem;">
+            <a href="{{ url_for('main.user_profile', username=t.author.username) }}">
+              {{ t.author.username }}
+            </a>
+
+            {% set medals = user_medals.get(t.author.id) %}
+            {% if medals %}
+              {% if medals.today %}
+                <span class="medal-badge-today"
+                      title="{{ medals.today.tooltip }}"
+                      aria-label="{{ medals.today.tooltip }}">
+                  {{ medals.today.icon }}
+                </span>
+              {% endif %}
+              {% if medals.week %}
+                <span class="medal-badge-week"
+                      title="{{ medals.week.tooltip }}"
+                      aria-label="{{ medals.week.tooltip }}">
+                  {{ medals.week.icon }}
+                </span>
+              {% endif %}
+              {% if medals.all_time %}
+                <span class="medal-badge-alltime"
+                      title="{{ medals.all_time.tooltip }}"
+                      aria-label="{{ medals.all_time.tooltip }}">
+                  {{ medals.all_time.icon }}
+                </span>
+              {% endif %}
+            {% endif %}
+
+            ({{ t.author.reputation or 0 }})
+
+
+          {% set medal = user_medals.get(t.author.id) %}
+          {% if medal %}
+            <span class="medal-badge-small"
+                  title="{{ medal.tooltip }}"
+          aria-label="{{ medal.tooltip }}">
+              {{ medal.icon }}
+            </span>
+          {% endif %}
+
+          · {{ t.created_at.strftime('%d-%m-%Y %H%M') }}
+          · {{ t.replies.count() }} replies
+        </small>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>No threads yet. Be the first to whinge.</p>
+  {% endif %}
+{% endblock %}

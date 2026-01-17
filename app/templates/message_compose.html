@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Send message - jokes.supergalley.com{% endblock %}
+
+{% block content %}
+<h2>
+  Send message to {{ recipient.username }}
+  {% set medals = user_medals.get(recipient.id) %}
+  {% if medals %}
+    {% if medals.today %}
+      <span class="medal-badge-today"
+            title="{{ medals.today.tooltip }}"
+            aria-label="{{ medals.today.tooltip }}">
+        {{ medals.today.icon }}
+      </span>
+    {% endif %}
+    {% if medals.week %}
+      <span class="medal-badge-week"
+            title="{{ medals.week.tooltip }}"
+            aria-label="{{ medals.week.tooltip }}">
+        {{ medals.week.icon }}
+      </span>
+    {% endif %}
+    {% if medals.all_time %}
+      <span class="medal-badge-alltime"
+            title="{{ medals.all_time.tooltip }}"
+            aria-label="{{ medals.all_time.tooltip }}">
+        {{ medals.all_time.icon }}
+      </span>
+    {% endif %}
+  {% endif %}
+</h2>
+<form method="post">
+  <div class="mb-3">
+    <label class="form-label">Subject</label>
+    <input type="text" name="subject" class="form-control">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Message</label>
+    <textarea name="body" class="form-control" rows="5" required></textarea>
+  </div>
+  <button class="btn btn-primary" type="submit">Send</button>
+</form>
+{% endblock %}

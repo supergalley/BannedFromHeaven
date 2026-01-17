@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Inbox - jokes.supergalley.com{% endblock %}
+
+{% block content %}
+<h2>Inbox</h2>
+
+{% if messages %}
+<form method="post" action="{{ url_for('main.bulk_delete_messages') }}">
+  <table class="table table-dark table-striped table-sm align-middle">
+    <thead>
+      <tr>
+        <th style="width:2rem;">
+          <input type="checkbox" id="select-all">
+        </th>
+        <th>From</th>
+        <th>Subject</th>
+        <th>Received</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in messages %}
+        <tr{% if not m.read_at %} class="table-active"{% endif %}>
+          <td>
+            <input type="checkbox" name="message_ids" value="{{ m.id }}" class="msg-checkbox">
+          </td>
+          <td>
+            <a href="{{ url_for('main.user_profile', username=m.sender.username) }}">
+              {{ m.sender.username }}
+            </a>
+            {% set medals = user_medals.get(m.sender.id) %}
+            {% if medals %}
+              {% if medals.today %}
+                <span class="medal-badge-today"
+                      title="{{ medals.today.tooltip }}"
+                      aria-label="{{ medals.today.tooltip }}">
+                  {{ medals.today.icon }}
+                </span>
+              {% endif %}
+              {% if medals.week %}
+                <span class="medal-badge-week"
+                      title="{{ medals.week.tooltip }}"
+                      aria-label="{{ medals.week.tooltip }}">
+                  {{ medals.week.icon }}
+                </span>
+              {% endif %}
+              {% if medals.all_time %}
+                <span class="medal-badge-alltime"
+                      title="{{ medals.all_time.tooltip }}"
+                      aria-label="{{ medals.all_time.tooltip }}">
+                  {{ medals.all_time.icon }}
+                </span>
+              {% endif %}
+            {% endif %}
+
+          </td>
+          <td>
+            <a href="{{ url_for('main.view_message', message_id=m.id) }}">
+              {{ m.subject or 'No subject' }}
+              {% if not m.read_at %}
+                <span class="badge bg-danger ms-1">New</span>
+              {% endif %}
+            </a>
+          </td>
+          <td class="small">
+            {{ m.created_at.strftime('%H%M %d%m%Y') }}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <button type="submit" class="btn btn-sm btn-outline-light">
+    Delete selected
+  </button>
+</form>
+
+<script>
+document.getElementById('select-all').addEventListener('change', (e) => {
+  document.querySelectorAll('.msg-checkbox').forEach(cb => {
+    cb.checked = e.target.checked;
+  });
+});
+</script>
+{% else %}
+  <p>No messages.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,23 @@
+#!/bin/bash
+
+if [ $# -ne 2 ]; then
+    echo "Usage: AddType <slug> <Name>"
+    exit 1
+fi
+
+SLUG="$1"
+NAME="$2"
+
+docker exec -i jokes-jokes-1 python3 <<EOF
+from app import create_app, db
+from app.models import Category
+
+app = create_app()
+with app.app_context():
+    if Category.query.filter_by(slug="$SLUG").first():
+        print("Category '$SLUG' already exists.")
+    else:
+        db.session.add(Category(slug="$SLUG", name="$NAME"))
+        db.session.commit()
+        print("Added '$SLUG' → '$NAME'")
+EOF

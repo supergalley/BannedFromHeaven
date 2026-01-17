@@ -1,0 +1,64 @@
+version: "3.8"
+
+services:
+  jokes:
+    image: jokes:latest
+    container_name: jokes
+    #build:
+      #context: /home/supergalley/docker/jokes
+    restart: unless-stopped
+    networks:
+      traefik:
+        ipv4_address: 192.168.2.12
+    volumes:
+      - /XanderSSD/jokes/data:/data
+      - /home/supergalley/docker/jokes/app:/app/app
+    environment:
+      SECRET_KEY: "{REDACTED}"
+      TURNSTILE_SITE_KEY: "{REDACTED}"
+      TURNSTILE_SECRET_KEY: "{REDACTED}"
+    labels:
+      - "traefik.enable=true"
+      - >
+        traefik.http.routers.jokes.rule=
+        Host(`jokes.supergalley.com`) || 
+        Host(`www.bannedfromheaven.com`) || 
+        Host(`bannedfromheaven.com`) || 
+        Host(`sickipedia.supergalley.com`)
+      - "traefik.http.routers.jokes.entrypoints=websecure"
+      - "traefik.http.routers.jokes.tls.certresolver=le"
+      - "traefik.http.services.jokes.loadbalancer.server.port=8000"
+        # MIDDLEWARE: errors handler
+   #   - "traefik.http.middlewares.errorpages.errors.status=404,500-599"
+    #  - "traefik.http.middlewares.errorpages.errors.service=errorpages"
+   #   - "traefik.http.middlewares.errorpages.errors.query=/error/{status}.html"
+    #  - "traefik.http.routers.jokes.middlewares=errorpages"
+
+  jokedbviewer:
+    image: coleifer/sqlite-web
+    container_name: jokes_pma
+    restart: unless-stopped
+    networks:
+      traefik:
+        ipv4_address: 192.168.2.13
+    volumes:
+       # same volume the jokes container uses
+      - /home/supergalley/docker/jokes/data:/data
+    environment:
+      SQLITE_WEB_PASSWORD: "{REDACTED}"
+    command: ["sqlite_web", "/data/jokes.db", "--host", "0.0.0.0"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jokesdbweb.rule=Host(`jokesdb.supergalley.com`) || Host(`jokes2.supergalley.com`)"
+      - "traefik.http.routers.jokesdbweb.entrypoints=websecure"
+      - "traefik.http.routers.jokesdbweb.tls.certresolver=le"
+      - "traefik.http.services.jokesdbweb.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.jokesdb-auth.basicauth.users=supergalley:$$2y$$05$$4WgSjKCjcvBu/aZhjRLVG.6B2btUYMWR1TmG3S6qYil3QY1OG5FAO"
+      - "traefik.http.routers.jokesdbweb.middlewares=jokesdb-auth"
+
+
+      
+networks:
+  traefik:
+    external: true
+    name: traefik

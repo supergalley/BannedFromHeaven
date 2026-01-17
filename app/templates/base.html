@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+    {# ---- SEO defaults ---- #}
+    {% if canonical_url %}
+      <link rel="canonical" href="{{ canonical_url }}">
+    {% endif %}
+    {% if noindex %}
+      <meta name="robots" content="noindex, follow">
+    {% endif %}
+    <meta charset="utf-8">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#121212">
+    <meta name="format-detection" content="date=no">
+    <meta name="format-detection" content="address=no">
+    <meta name="format-detection" content="email=no">
+    <title x-content-detected="none">{% block title %}BannedFromHeaven.com - Sickipedia Style Jokes{% endblock %} </title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Sickipedia style jokes, dark humour and offensive comedy.">
+    <meta name="format-detection" content="telephone=no">
+    <meta property="og:site_name" content="Banned From Heaven">
+    <meta property="og:url" content="{{ request.url_root }}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Banned From Heaven">
+    <meta property="og:description" content="Dark jokes, memes and clips.">
+    <!-- Quick-and-dirty Bootstrap CDN, replace later if you care -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet">
+    <style>
+        body {
+            background-color: #121212;
+            color: #e6e6e6;
+        }
+        h1, h2, h3, h4, h5, h6 {
+          color: #e6e6e6;
+        }
+        .btn-outline-light {
+          color: #f0f0f0;
+          border-color: #777;
+        }
+        .btn-outline-light:hover {
+          background-color: #2a2a2a;
+          border-color: #aaa;
+        }
+        .text-muted {
+          color: #b5b5b5 !important;
+        }
+        small,
+        .form-text {
+          color: #c8c8c8;
+        }
+        a { color: #9f7bff}
+        a:hover {color: #b89cff}
+        /* Form labels & inputs on dark backgrounds */
+        label,
+        .form-label {
+          color: #e0e0e0;
+        }
+        input::placeholder,
+        textarea::placeholder {
+          color: #a0a0a0;
+        }
+        .joke-card {
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            color: #e6e6e6;
+        }
+        .joke-card small {color: #bfbfbf}
+        .glow-green {
+            box-shadow: 0 0 10px rgba(0, 255, 100, 0.8);
+            border: 1px solid rgba(0, 255, 100, 0.7);
+        }
+        .vote-btn {
+            cursor: pointer;
+            user-select: none;
+        }
+        /* Meme image sizing */
+        .meme-img {
+          width: 100%;
+          max-width: 720px;     /* prevents billboard memes */
+          max-height: 520px;    /* prevents skyscraper memes */
+          object-fit: contain;  /* no cropping */
+          display: block;
+          margin: 0 auto;
+        }
+        /* Moderator pulsing red label */
+        .moderator-badge {
+            color: #ff4444;
+            font-weight: bold;
+            margin-left: 1rem;
+            animation: modPulse 1.8s ease-in-out infinite;
+        }
+        .medal-badge-today {
+            font-size: 1.1rem;
+            margin-left: 0.25rem;
+            vertical-align: middle;
+            display: inline-block;
+            line-height: 1;
+        }
+
+        .medal-badge-week {
+            font-size: 1.3rem;
+            margin-left: 0.15rem;
+            vertical-align: middle;
+            display: inline-block;
+            line-height: 1;
+        }
+
+        .medal-badge-alltime {
+            font-size: 1.5rem;
+            margin-left: 0.15rem;
+            vertical-align: middle;
+            display: inline-block;
+            line-height: 1;
+        }
+        .navbar,
+        .navbar a,
+        .nav-link {color: #e6e6e6 }
+        .nav-link:hover {color: #ffffff }
+        @keyframes modPulse {
+            0%   { opacity: 0.2; }
+            50%  { opacity: 1; }
+            100% { opacity: 0.2; }
+        }
+        {% if show_christmas_snow %}
+        .snow-layer {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .main-content-layer {
+            position: relative;
+            z-index: 1;
+        }
+        .medal-badge-big {
+            font-size: 1.4rem;
+            margin-left: 0.35rem;
+            vertical-align: middle;
+        }
+
+        .medal-badge-small {
+            font-size: 1.1rem;
+            margin-left: 0.2rem;
+            vertical-align: baseline;
+        }
+        .vote-column {
+          width: 48px;
+          flex-shrink: 0;
+        }
+
+        .snowflake {
+            position: absolute;
+            top: -10px;
+            color: rgba(255, 255, 255, 0.9);
+            user-select: none;
+            font-size: 0.6rem;
+            animation-name: snow-fall;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+        }
+
+        @keyframes snow-fall {
+            0% {
+                transform: translate3d(0, -10px, 0);
+            }
+            100% {
+                transform: translate3d(var(--snow-drift, 0px), 110vh, 0);
+            }
+        }
+        {% else %}
+        .main-content-layer {
+            position: relative;
+            z-index: 1;
+        }
+        {% endif %}
+
+        /* Glow for user-voted arrows */
+        .vote-btn.voted-up {
+            box-shadow: 0 0 8px rgba(0, 255, 0, 0.8);
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+        }
+
+        .vote-btn.voted-down {
+            box-shadow: 0 0 8px rgba(255, 0, 0, 0.8);
+            border: 1px solid #ff0000;
+            border-radius: 4px;
+        }
+         .admin-link-highlight {
+            border: 2px solid yellow;
+            border-radius: 999px;
+            padding: 2px 10px;
+        }
+                .reaction-trigger {
+            color: #9f7bff;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .reaction-main-emoji {
+            font-size: 1.1rem;
+            margin-right: 0.25rem;
+            transition: transform 0.1s ease-out;
+        }
+
+        .reaction-main-empty {
+            color: #888888;
+        }
+
+        .reaction-trigger:hover .reaction-main-emoji {
+            transform: scale(1.2);
+        }
+
+        .reaction-summary {
+            min-width: 0;
+        }
+
+        .reaction-summary-emoji {
+            font-size: 1rem;
+            margin-right: 0.1rem;
+        }
+
+        .reaction-summary-count {
+            font-size: 0.8rem;
+            color: #cccccc;
+        }
+
+        .reaction-picker {
+            position: absolute;
+            background: #222;
+            border-radius: 999px;
+            padding: 4px 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.6);
+            display: none;
+            z-index: 2000;
+        }
+
+        .reaction-picker button {
+            background: none;
+            border: none;
+            padding: 4px;
+            margin: 0 2px;
+            cursor: pointer;
+            font-size: 1.4rem;
+        }
+
+        .reaction-picker button:hover {
+            transform: scale(1.2);
+        }
+        .reaction-users-tooltip {
+            position: absolute;
+            background: #222;
+            border-radius: 8px;
+            padding: 6px 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.6);
+            color: #f0f0f0;
+            font-size: 0.8rem;
+            max-width: 260px;
+            z-index: 2100;
+            display: none;
+            white-space: normal;
+        }
+
+        .reaction-users-title {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .reaction-users-list {
+            font-size: 0.8rem;
+            line-height: 1.3;
+        }
+        .user-modified-range {
+            box-shadow:
+              0 0 0.4rem rgba(0, 255, 0, 0.6),
+              0 0 0.8rem rgba(0, 255, 0, 0.4);
+            border-color: #00ff00;
+        }
+    </style>
+
+    {% if show_newyear_effects %}
+      <link rel="stylesheet" href="{{ url_for('static', filename='newyear.css') }}">
+    {% endif %}
+    {% block head %}{% endblock %}
+</head>
+<body>
+
+{% if show_christmas_snow %}
+  <div id="snow-layer" class="snow-layer"></div>
+{% endif %}
+
+<nav class="navbar navbar-dark main-content-layer" style="background-color:#181818;">
+  <div class="container-fluid">
+    <a class="navbar-brand"
+       href="{{ url_for('main.index') }}"
+       x-content-detected="none">Home
+    </a>
+    <a class="nav-link ms-3"
+       href="{{ url_for('main.search') }}"
+       x-content-detected="none">Search
+    </a>
+    <a class="nav-link ms-3"
+       href="{{ url_for('main.wankerboard') }}"
+       x-content-detected="none">SinnerBoard©
+    </a>
+    <a class="nav-link ms-3 {% if forum_has_unread %}glow-green{% endif %}"
+       href="{{ url_for('forum.index') }}"
+       x-content-detected="none">Forum
+    </a>
+    {% if current_user.is_authenticated and current_user.is_admin %}
+    <a class="nav-link ms-3 {% if admin_unread_notifications %}admin-link-highlight{% endif %}"
+       href="{{ url_for('admin.dashboard') }}"
+       x-content-detected="none"
+       style="color:#9f7bff;">
+       Admin
+    </a>
+    {% elif current_user.is_moderator %} <span class="moderator-badge"> Moderator </span>
+    {% endif %}
+    <div class="d-flex align-items-center">
+      {% if show_christmas_snow %}
+        <div class="form-check form-switch text-light me-3">
+          <input class="form-check-input" type="checkbox" id="snowToggle" checked>
+          <label class="form-check-label small" for="snowToggle">Snow</label>
+        </div>
+      {% endif %}
+      {% if current_user.is_authenticated %}
+        <a href="{{ url_for('main.inbox') }}"
+           class="btn btn-sm me-2 {% if unread_message_count and unread_message_count > 0 %}btn-danger{% else %}btn-outline-light{% endif %}">
+          Messages
+          {% if unread_message_count and unread_message_count > 0 %}
+            ({{ unread_message_count }})
+          {% endif %}
+        </a>
+        <a href="{{ url_for('main.submit_joke') }}" class="btn btn-sm btn-primary me-2">Submit joke</a>
+        <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light ms-2">
+          <div class="d-flex flex-column lh-1 text-start">
+            <span class="small">
+              {{ current_user.username }}
+              {% set medals = user_medals.get(current_user.id) %}
+              {% if medals %}
+                {% if medals.all_time %}
+                  <span class="medal-badge-alltime"
+                        title="{{ medals.all_time.tooltip }}"
+                        aria-label="{{ medals.all_time.tooltip }}">
+                    {{ medals.all_time.icon }}
+                  </span>
+                {% endif %}
+              {% endif %}
+            </span>
+            <span>Logout</span>
+          </div>
+        </a>
+      {% else %}
+        <a href="{{ url_for('auth.login') }}" class="btn btn-sm btn-outline-light">Login</a>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+<div class="container mt-3 main-content-layer">
+  {% with messages = get_flashed_messages(with_categories=True) %}
+    {% if messages %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }} alert-sm py-1 my-1">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/axios@1.7.2/dist/axios.min.js"></script>
+{% block scripts %}{% endblock %}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
+{% if show_newyear_effects %}
+  <script>
+    window.NEWYEAR_ENTERING_YEAR = {{ newyear_entering_year|int }};
+  </script>
+  <script src="{{ url_for('static', filename='newyear.js') }}"></script>
+{% endif %}
+
+
+{% if show_christmas_snow %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const snowLayer = document.getElementById('snow-layer');
+    const snowToggle = document.getElementById('snowToggle');
+    const STORAGE_KEY = 'jokes_snow_enabled';
+
+    if (!snowLayer) {
+      return;
+    }
+
+    function getSnowPreference() {
+      try {
+        const value = localStorage.getItem(STORAGE_KEY);
+        if (value === null) {
+          return true;
+        }
+        return value === 'true';
+      } catch (e) {
+        return true;
+      }
+    }
+
+    function applySnowEnabled(enabled) {
+      snowLayer.style.display = enabled ? 'block' : 'none';
+    }
+
+    const snowEnabled = getSnowPreference();
+    applySnowEnabled(snowEnabled);
+
+    if (snowToggle) {
+      snowToggle.checked = snowEnabled;
+      snowToggle.addEventListener('change', function () {
+        const enabled = !!snowToggle.checked;
+        applySnowEnabled(enabled);
+        try {
+          localStorage.setItem(STORAGE_KEY, String(enabled));
+        } catch (e) {}
+      });
+    }
+
+    const flakes = 120;
+
+    // Probability that a flake is a "special" emoji instead of ❄.
+    // 0.05 = 5%. Change this to 0.10 for 10%, etc.
+    const SPECIAL_FLAKE_CHANCE = 0.05;
+
+    const specialFlakes = [
+      "🤯","🤬","🤡","🤠","🥸","😈","👿","👹","👺","💀","☠️","👻","💩",
+      "🙈","🙉","🙊","🐖","🧟‍♀️","👨🏿","👱🏿‍♂️","🧑🏿‍🎄","👮🏻‍♀️","👨🏻‍⚕️",
+      "🧜🏻‍♂️","🏋🏻‍♂️","🩻","💊","🧬","💉","🔫","💣","⚔️","🔪","✂️","🥩","🏳️‍🌈","☃️"
+    ];
+
+    function pickFlakeChar() {
+      if (Math.random() < SPECIAL_FLAKE_CHANCE) {
+        const idx = Math.floor(Math.random() * specialFlakes.length);
+        return specialFlakes[idx];
+      }
+      return "❄";
+    }
+
+    for (let i = 0; i < flakes; i++) {
+      const flake = document.createElement('div');
+      flake.className = 'snowflake';
+      flake.textContent = pickFlakeChar();
+
+      const size = 0.4 + Math.random() * 1.2;
+      flake.style.fontSize = size + 'rem';
+
+      flake.style.left = Math.random() * 100 + 'vw';
+
+      const duration = 8 + Math.random() * 12;
+      flake.style.animationDuration = duration + 's';
+
+      const delay = Math.random() * -duration;
+      flake.style.animationDelay = delay + 's';
+
+      flake.style.opacity = (0.4 + Math.random() * 0.6).toFixed(2);
+
+      const drift = (Math.random() * 40 - 20).toFixed(1) + 'px';
+      flake.style.setProperty('--snow-drift', drift);
+
+      snowLayer.appendChild(flake);
+    }
+  });
+</script>
+{% endif %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const sel = document.querySelector('select[data-sticky-range="feed_range"]');
+  if (!sel) return;
+  const key = "feed_range";
+  const modifiedKey = "feed_range_modified";
+  const url = new URL(window.location.href);
+  const allowed = new Set(Array.from(sel.options).map(o => o.value));
+  const urlRange = url.searchParams.get("range");
+  // If URL has a valid range, treat it as current and remember it.
+  if (urlRange && allowed.has(urlRange)) {
+    sessionStorage.setItem(key, urlRange);
+    if (sessionStorage.getItem(modifiedKey) === "true") {
+      sel.classList.add("user-modified-range");
+    }
+  } else {
+    // No range in URL: if user previously chose one, redirect once to include it.
+    const saved = sessionStorage.getItem(key);
+    if (saved && allowed.has(saved)) {
+      url.searchParams.set("range", saved);
+      window.location.replace(url.toString());
+      return; // redirecting, so stop here
+    }
+  }
+  // Always bind change handler so updates keep working forever.
+  sel.addEventListener("change", () => {
+    const v = sel.value;
+    if (!allowed.has(v)) return;
+    sessionStorage.setItem(key, v);
+    sessionStorage.setItem(modifiedKey, "true");
+    sel.classList.add("user-modified-range");
+    // Keep your existing behaviour: submit GET form so server renders correct list
+    sel.form && sel.form.submit();
+  });
+});
+</script>
+</body>
+</html>

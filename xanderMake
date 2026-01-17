@@ -1,0 +1,4 @@
+#!/bin/bash
+#docker stop jokes-jokes-1
+docker build --no-cache -t bannedfromheaven:latest .
+#docker restart jokes-jokes-1

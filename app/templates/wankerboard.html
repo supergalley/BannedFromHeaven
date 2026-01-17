@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>SinnerBoard™</h2>
+
+<form method="get" class="mb-3">
+  <label class="me-3">
+    <input type="radio" name="range" value="24h"
+           {% if lb_range == '24h' %}checked{% endif %}
+           onchange="this.form.submit()">
+    Last 24 hours
+  </label>
+
+  <label class="me-3">
+    <input type="radio" name="range" value="week"
+           {% if lb_range == 'week' %}checked{% endif %}
+           onchange="this.form.submit()">
+    This week
+  </label>
+
+  <label class="me-3">
+    <input type="radio" name="range" value="all"
+           {% if lb_range == 'all' %}checked{% endif %}
+           onchange="this.form.submit()">
+    All time
+  </label>
+</form>
+
+<h3>Leaderboard</h3>
+
+<table class="table table-dark table-sm">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>User</th>
+      <th>Reputation earned</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% if rep_leaderboard %}
+      {% for row in rep_leaderboard %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ row.username }}</td>
+          <td>{{ row.rep_delta }}</td>
+        </tr>
+      {% endfor %}
+    {% else %}
+      <tr><td colspan="3" class="text-muted">No reputation activity in this period.</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+<h3>Upvote leaderboard</h3>
+
+<table class="table table-dark table-sm">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>User</th>
+      <th>Upvotes cast</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% if upvote_leaderboard %}
+      {% for row in upvote_leaderboard %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ row.username }}</td>
+          <td>{{ row.upvote_count }}</td>
+        </tr>
+      {% endfor %}
+    {% else %}
+      <tr><td colspan="3" class="text-muted">No upvotes in this period.</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+
+<h2>Downvote Leaderboard</h2>
+<table class="table table-dark table-sm">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>User</th>
+      <th>Downvotes cast</th>
+      <th>Upvotes cast</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% if downvote_leaderboard %}
+      {% for row in downvote_leaderboard %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ row.username }}</td>
+          <td>{{ row.downvote_count }}</td>
+          <td>{{ row.upvote_count }}</td>
+        </tr>
+      {% endfor %}
+
+    {% else %}
+      <tr>
+        <td colspan="3" class="text-muted">
+          No downvotes in this period.
+        </td>
+      </tr>
+    {% endif %}
+  </tbody>
+</table>
+
+{% endblock %}

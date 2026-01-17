@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block title %}Search - BannedFromHeaven.com{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+  <div class="btn-group" role="group">
+    <a href="{{ url_for('main.index') }}" class="btn btn-sm btn-outline-light">Home</a>
+  </div>
+
+  <div class="text-end small text-muted">
+    Search
+  </div>
+</div>
+
+<form method="get" class="mb-4">
+
+<input type="hidden" name="category_ids" id="category_ids"
+       value="{% if selected_category_ids %}{{ selected_category_ids|join(',') }}{% endif %}">
+
+<div class="mb-3">
+  <label class="form-label small">Categories</label>
+  <div class="d-flex flex-wrap gap-2" id="categoryPills">
+    <button type="button"
+            class="btn btn-sm {% if not selected_category_ids %}btn-light{% else %}btn-outline-light{% endif %} category-pill"
+            data-cat="">
+      All categories
+    </button>
+    {% for cat in categories %}
+      <button type="button"
+              class="btn btn-sm {% if cat.id in selected_category_ids %}btn-light{% else %}btn-outline-light{% endif %} category-pill"
+              data-cat="{{ cat.id }}">
+        {{ cat.name }}
+      </button>
+    {% endfor %}
+  </div>
+  <div class="form-text">Tap multiple categories, then Search. Auto-refresh is debounced so you can tap a few.</div>
+</div>
+
+  <div class="row g-2 align-items-end">
+
+    <div class="col-12 col-md-2">
+      <label class="form-label small">Range</label>
+      <select name="range" class="form-select form-select-sm glow-green" data-sticky-range="feed_range"> <!--</select>onchange="this.form.submit()"> -->
+        <option value="today" {% if time_range == 'today' %}selected{% endif %}>Last 24h</option>
+        <option value="week"  {% if time_range == 'week' %}selected{% endif %}>This week</option>
+        <option value="month" {% if time_range == 'month' %}selected{% endif %}>This month</option>
+        <option value="all"   {% if time_range == 'all' %}selected{% endif %}>All time</option>
+      </select>
+      <div class="form-text small">Auto refreshes on change.</div>
+    </div>
+
+    <div class="col-12 col-md-2">
+      <label class="form-label small">Type</label>
+      <select name="type" class="form-select form-select-sm">
+        <option value="all" {% if search_type == 'all' %}selected{% endif %}>Jokes + Memes</option>
+        <option value="jokes" {% if search_type == 'jokes' %}selected{% endif %}>Jokes only</option>
+        <option value="memes" {% if search_type == 'memes' %}selected{% endif %}>Memes only</option>
+      </select>
+    </div>
+
+<div class="col-12 col-md-2">
+  <label class="form-label small">Sort</label>
+  <select name="sort" class="form-select form-select-sm">
+    <option value="newest" {% if sort == "newest" %}selected{% endif %}>Newest</option>
+    <option value="oldest" {% if sort == "oldest" %}selected{% endif %}>Oldest</option>
+    <option value="score_desc" {% if sort == "score_desc" %}selected{% endif %}>Highest rating</option>
+    <option value="score_asc" {% if sort == "score_asc" %}selected{% endif %}>Lowest rating</option>
+    <option value="comments_desc" {% if sort == "comments_desc" %}selected{% endif %}>Most comments</option>
+  </select>
+</div>
+<div class="col-12 col-md-2">
+      <label class="form-label small">Min rating</label>
+      <input type="number" name="min_score" class="form-control form-control-sm"
+             value="{{ current_args.get('min_score','') }}" placeholder="e.g. 10">
+    </div>
+
+<div class="col-12 col-md-3">
+  <label class="form-label small">Keyword / phrase</label>
+  <input type="text" name="q" class="form-control form-control-sm"
+         value="{{ q or '' }}" placeholder="e.g. car, run over, etc">
+</div>
+
+    <div class="col-12 col-md-2">
+      <label class="form-label small">Username</label>
+      <input type="text" name="username" class="form-control form-control-sm"
+             value="{{ current_args.get('username','') }}" placeholder="Type a username">
+    </div>
+
+    <div class="col-12 col-md-2">
+      <button type="submit" class="btn btn-sm btn-primary w-100">Search</button>
+    </div>
+
+    <div class="col-12 col-md-3">
+      <label class="form-label small">From</label>
+      <input type="date" name="date_from" class="form-control form-control-sm"
+             value="{{ current_args.get('date_from','') }}">
+    </div>
+
+    <div class="col-12 col-md-3">
+      <label class="form-label small">To</label>
+      <input type="date" name="date_to" class="form-control form-control-sm"
+             value="{{ current_args.get('date_to','') }}">
+    </div>
+
+    <div class="col-12 col-md-6">
+      <div class="small text-muted mt-2">
+        Tip: If you set From/To dates, the Range dropdown is ignored.
+      </div>
+    </div>
+
+  </div>
+</form>
+
+<!-- Results -->
+{% if results %}
+  <div class="small text-muted mb-2">Showing {{ results|length }} result{% if results|length != 1 %}s{% endif %} (max 200).</div>
+
+  {% for joke in results %}
+    <div class="joke-card d-flex">
+      <div class="me-3 text-center">
+        {% if current_user.is_authenticated %}
+          <div class="vote-btn {% if vote_map.get(joke.id) == 1 %}voted-up{% endif %}" data-id="{{ joke.id }}" data-dir="up">⬆</div>
+        {% else %}<div>⬆</div>{% endif %}
+        <div id="score-{{ joke.id }}">{{ joke.score }}</div>
+        {% if current_user.is_authenticated %}
+          <div class="vote-btn {% if vote_map.get(joke.id) == -1 %}voted-down{% endif %}" data-id="{{ joke.id }}" data-dir="down">⬇</div>
+        {% else %}<div>⬇</div>{% endif %}
+      </div>
+
+      <div class="flex-grow-1">
+        {% if joke.is_meme and joke.image_filename %}
+          <img src="{{ UPLOADS_URL }}/{{ joke.image_filename|urlencode }}" class="img-fluid mb-2">
+        {% endif %}
+
+        <p class="mt-1 mb-1" style="white-space:pre-wrap;">{{ joke.body }}</p>
+
+        {% if joke.category %}
+          <a href="{{ category_url_map.get(joke.category.id, url_for('main.search')) }}"
+             style="display:inline-block; background:#9f7bff33; color:#9f7bff; padding:3px 10px; margin-top:5px; border:1px solid #9f7bff; border-radius:6px; font-size:0.8rem;">
+            {{ joke.category.name }}
+          </a>
+        {% endif %}
+
+        <p class="mt-2 mb-0 small" style="color:#bfbfbf;">
+          <a href="{{ url_for('main.joke_detail', joke_id=joke.id) }}" style="color:#bfbfbf; text-decoration: underline;">
+            {{ joke.comment_count }} comment{% if joke.comment_count != 1 %}s{% endif %}
+          </a>
+        </p>
+
+        <small style="color:#bfbfbf; font-size:0.85rem;">
+          <a href="{{ url_for('main.user_profile', username=joke.author.username) }}">{{ joke.author.username }}</a>
+          ({{ joke.author.reputation or 0 }})
+          · <a x-content-detected="none">{{ joke.created_at.strftime('%d-%m-%Y %H%M') }}</a>
+          {% if joke.is_meme %}<span class="badge text-bg-secondary ms-2">meme</span>{% endif %}
+        </small>
+      </div>
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="text-muted">
+    No results. Try switching <span class="glow-green">Range</span> to “This week” or “All time”.
+  </div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateVoteGlow(jokeId, direction) {
+  const upBtn = document.querySelector(`.vote-btn[data-id="${jokeId}"][data-dir="up"]`);
+  const downBtn = document.querySelector(`.vote-btn[data-id="${jokeId}"][data-dir="down"]`);
+  if (!upBtn || !downBtn) return;
+
+  const upActive = upBtn.classList.contains('voted-up');
+  const downActive = downBtn.classList.contains('voted-down');
+
+  let newUp = upActive;
+  let newDown = downActive;
+
+  if (direction === 'up') {
+    newUp = !upActive;
+    newDown = false;
+  } else if (direction === 'down') {
+    newUp = false;
+    newDown = !downActive;
+  }
+
+  upBtn.classList.toggle('voted-up', newUp);
+  downBtn.classList.toggle('voted-down', newDown);
+}
+
+document.querySelectorAll('.vote-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id = btn.dataset.id;
+    const direction = btn.dataset.dir;
+
+    fetch(`/api/jokes/${id}/vote`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({direction})
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.score !== undefined) {
+        const scoreEl = document.getElementById(`score-${id}`);
+        if (scoreEl) scoreEl.innerText = data.score;
+      }
+      updateVoteGlow(id, direction);
+    })
+    .catch(err => console.error(err));
+  });
+});
+</script>
+
+
+
+<script>
+(function () {
+  const pills = document.querySelectorAll(".category-pill");
+  const hidden = document.getElementById("category_ids");
+  const form = hidden ? hidden.closest("form") : null;
+  if (!pills.length || !hidden || !form) return;
+
+  let timer = null;
+
+  function getSelected() {
+    const raw = (hidden.value || "").trim();
+    if (!raw) return [];
+    return raw.split(",").map(s => s.trim()).filter(Boolean);
+  }
+
+  function setSelected(arr) {
+    hidden.value = arr.join(",");
+  }
+
+  function render() {
+    const sel = new Set(getSelected());
+    pills.forEach(btn => {
+      const id = btn.getAttribute("data-cat");
+      const isAll = !id;
+      const active = (isAll && sel.size === 0) || (!isAll && sel.has(id));
+      btn.classList.toggle("btn-light", active);
+      btn.classList.toggle("btn-outline-light", !active);
+    });
+  }
+
+  function submitSoon() {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => form.submit(), 450);
+  }
+
+  pills.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-cat");
+      let sel = getSelected();
+
+      if (!id) {
+        sel = [];
+      } else {
+        const idx = sel.indexOf(id);
+        if (idx >= 0) sel.splice(idx, 1);
+        else sel.push(id);
+      }
+
+      setSelected(sel);
+      render();
+      submitSoon();
+    });
+  });
+
+  render();
+})();
+</script>
+
+{% endblock %}

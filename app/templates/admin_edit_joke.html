@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Edit joke {{ joke.id }}{% endblock %}
+
+{% block content %}
+<h2>Edit joke #{{ joke.id }}</h2>
+
+ <form method="post">
+    <div class="mb-3">
+      <label class="form-label">Body</label>
+      <textarea name="body" class="form-control" rows="6">{{ joke.body }}</textarea>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Category</label>
+      <select name="category_id" class="form-select">
+        <option value="">(none)</option>
+        {% for c in categories %}
+          <option value="{{ c.id }}" {% if joke.category_id == c.id %}selected{% endif %}>
+            {{ c.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <button class="btn btn-primary" type="submit">Save</button>
+  </form>
+
+  <form method="post"
+        action="{{ url_for('admin.delete_joke', joke_id=joke.id) }}"
+        style="display:inline-block; margin-top: 1rem;"
+        onsubmit="return confirm('Delete this joke? This cannot be undone.');">
+    <button type="submit" class="btn btn-danger">
+      Delete
+    </button>
+  </form>
+{% endblock %}

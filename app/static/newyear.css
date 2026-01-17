@@ -1,0 +1,46 @@
+/* New Year overlay (canvas fireworks + falling text) */
+
+#ny-fireworks-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#ny-text-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.ny-falling {
+  position: absolute;
+  top: -8vh;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+  animation: ny-fall 8s linear forwards;
+  white-space: nowrap;
+  filter: drop-shadow(0 0 10px rgba(255,255,255,0.25));
+}
+
+@keyframes ny-fall {
+  0%   { transform: translate3d(0, -10vh, 0) rotate(-2deg); opacity: 0; }
+  8%   { opacity: 1; }
+  92%  { opacity: 1; }
+  100% { transform: translate3d(0, 115vh, 0) rotate(2deg); opacity: 0; }
+}
+
+/* Respect reduced motion users (and their sanity). */
+@media (prefers-reduced-motion: reduce) {
+  #ny-fireworks-canvas { display: none; }
+  .ny-falling { animation: none; display: none; }
+}
+body {
+  position: relative;
+  z-index: 1;
+}

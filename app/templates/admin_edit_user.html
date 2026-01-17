@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Edit user – {{ user.username }}{% endblock %}
+
+{% block content %}
+<h2>
+  Edit user: {{ user.username }}
+<h2>
+  Edit user: {{ user.username }}
+  {% set medals = user_medals.get(user.id) %}
+  {% if medals %}
+    {% if medals.today %}
+      <span class="medal-badge-today"
+            title="{{ medals.today.tooltip }}"
+            aria-label="{{ medals.today.tooltip }}">
+        {{ medals.today.icon }}
+      </span>
+    {% endif %}
+    {% if medals.week %}
+      <span class="medal-badge-week"
+            title="{{ medals.week.tooltip }}"
+            aria-label="{{ medals.week.tooltip }}">
+        {{ medals.week.icon }}
+      </span>
+    {% endif %}
+    {% if medals.all_time %}
+      <span class="medal-badge-alltime"
+            title="{{ medals.all_time.tooltip }}"
+            aria-label="{{ medals.all_time.tooltip }}">
+        {{ medals.all_time.icon }}
+      </span>
+    {% endif %}
+  {% endif %}
+</h2>
+
+</h2>
+<form method="post">
+  <div class="mb-3">
+    <label class="form-label">Username</label>
+    <input type="text" name="username" class="form-control" value="{{ user.username }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Email</label>
+    <input type="email" name="email" class="form-control" value="{{ user.email }}">
+  </div>
+  <div class="mb-3">
+      <label>
+          <input type="checkbox"
+                 name="is_admin"
+                 {% if user.is_admin %}checked{% endif %}
+                 {% if not current_user.is_admin %}disabled{% endif %}>
+          Admin
+      </label>
+  </div>
+
+  <div class="mb-3">
+      <label>
+          <input type="checkbox"
+                 name="is_moderator"
+                 {% if user.is_moderator %}checked{% endif %}
+                 {% if not current_user.is_admin %}disabled{% endif %}>
+          Moderator
+      </label>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save</button>
+</form>
+
+<hr>
+
+<h4>Bans</h4>
+<form method="post" action="{{ url_for('admin.ban_user', user_id=user.id, period='24h') }}" style="display:inline;">
+  <button class="btn btn-sm btn-warning">Ban 24h</button>
+</form>
+<form method="post" action="{{ url_for('admin.ban_user', user_id=user.id, period='7d') }}" style="display:inline;">
+  <button class="btn btn-sm btn-warning">Ban 7 days</button>
+</form>
+<form method="post" action="{{ url_for('admin.ban_user', user_id=user.id, period='30d') }}" style="display:inline;">
+  <button class="btn btn-sm btn-warning">Ban 1 month</button>
+</form>
+<form method="post" action="{{ url_for('admin.ban_user', user_id=user.id, period='clear') }}" style="display:inline;">
+  <button class="btn btn-sm btn-success">Clear ban</button>
+</form>
+
+<p class="mt-2">Current ban until: {{ user.ban_until or 'not banned' }}</p>
+{% endblock %}

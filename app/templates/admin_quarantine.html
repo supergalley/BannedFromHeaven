@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Quarantined Jokes - Admin - jokes.supergalley.com{% endblock %}
+
+{% block content %}
+<h2>Quarantined Jokes</h2>
+
+{% if items %}
+  <table class="table table-dark table-striped table-sm align-middle mt-3">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Score</th>
+        <th>Snippet</th>
+        <th>Quarantined by</th>
+        <th>When</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for q in items %}
+      {% set joke = q.joke %}
+      <tr>
+        <td>{{ joke.id }}</td>
+        <td>{{ joke.score }}</td>
+        <td style="max-width: 300px;">
+          {{ (joke.title or joke.body[:120]) }}
+        </td>
+        <td>
+          {% if q.moderator %}
+            {{ q.moderator.username }}
+            {{ q.moderator.username }}
+            {% set medals = user_medals.get(q.moderator.id) %}
+            {% if medals %}
+              {% if medals.today %}
+                <span class="medal-badge-today"
+                      title="{{ medals.today.tooltip }}"
+                      aria-label="{{ medals.today.tooltip }}">
+                  {{ medals.today.icon }}
+                </span>
+              {% endif %}
+              {% if medals.week %}
+                <span class="medal-badge-week"
+                      title="{{ medals.week.tooltip }}"
+                      aria-label="{{ medals.week.tooltip }}">
+                  {{ medals.week.icon }}
+                </span>
+              {% endif %}
+              {% if medals.all_time %}
+                <span class="medal-badge-alltime"
+                      title="{{ medals.all_time.tooltip }}"
+                      aria-label="{{ medals.all_time.tooltip }}">
+                  {{ medals.all_time.icon }}
+                </span>
+              {% endif %}
+            {% endif %}
+          {% else %}
+            Unknown
+          {% endif %}
+        </td>
+        <td>
+          {{ q.created_at.strftime('%d-%m-%Y %H:%M') if q.created_at else 'Unknown' }}
+        </td>
+        <td>
+          {# View joke as normal page #}
+          <a href="{{ url_for('main.joke_detail', joke_id=joke.id) }}"
+             class="btn btn-sm btn-outline-light mb-1">
+            View
+          </a>
+
+          {# Edit joke using existing admin edit view if you have one #}
+          <a href="{{ url_for('admin.edit_joke', joke_id=joke.id) }}"
+             class="btn btn-sm btn-outline-primary mb-1">
+            Edit
+          </a>
+
+          <form method="post"
+                action="{{ url_for('admin.restore_quarantined_joke', joke_id=joke.id) }}"
+                class="d-inline">
+            <button type="submit"
+                    class="btn btn-sm btn-success mb-1"
+                    onclick="return confirm('Restore this joke to public view and lock it from further moderator quarantine?');">
+              Restore
+            </button>
+          </form>
+
+          <form method="post"
+                action="{{ url_for('admin.delete_quarantined_joke', joke_id=joke.id) }}"
+                class="d-inline">
+            <button type="submit"
+                    class="btn btn-sm btn-danger mb-1"
+                    onclick="return confirm('Mark this joke as deleted so it no longer appears anywhere?');">
+              Delete
+            </button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p>No jokes are currently in quarantine. Either things are going well or nobody’s reporting anything.</p>
+{% endif %}
+{% endblock %}

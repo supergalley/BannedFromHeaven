@@ -1,0 +1,37 @@
+# Python junk
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtualenvs (just in case)
+.venv/
+venv/
+env/
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Your runtime data (DO NOT COMMIT)
+data/
+data/**
+
+# Your archives and exports
+archives/
+archives/**
+*.zip
+
+# Your backup copies / accidents
+*.backup
+*.BACKUP
+*~ 
+
+# If you ever add logs
+*.log
+logs/
+skeleton/

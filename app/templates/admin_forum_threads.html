@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Admin – Forum threads{% endblock %}
+
+{% block content %}
+<h2>Forum threads</h2>
+
+<table class="table table-dark table-sm">
+  <thead>
+    <tr>
+      <th>ID</th><th>Title</th><th>Author</th><th>Created</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for t in threads %}
+    <tr>
+      <td>{{ t.id }}</td>
+      <td>{{ t.title }}</td>
+      <td>
+        {% if t.author %}
+          {{ t.author.username }}
+      <td>
+        {% if t.author %}
+          {{ t.author.username }}
+          {% set medals = user_medals.get(t.author.id) %}
+          {% if medals %}
+            {% if medals.today %}
+              <span class="medal-badge-today"
+                    title="{{ medals.today.tooltip }}"
+                    aria-label="{{ medals.today.tooltip }}">
+                {{ medals.today.icon }}
+              </span>
+            {% endif %}
+            {% if medals.week %}
+              <span class="medal-badge-week"
+                    title="{{ medals.week.tooltip }}"
+                    aria-label="{{ medals.week.tooltip }}">
+                {{ medals.week.icon }}
+              </span>
+            {% endif %}
+            {% if medals.all_time %}
+              <span class="medal-badge-alltime"
+                    title="{{ medals.all_time.tooltip }}"
+                    aria-label="{{ medals.all_time.tooltip }}">
+                {{ medals.all_time.icon }}
+              </span>
+            {% endif %}
+          {% endif %}
+        {% endif %}
+      </td>
+        {% endif %}
+      </td>
+      <td>{{ t.created_at }}</td>
+      <td>
+        <a href="{{ url_for('forum.view_thread', thread_id=t.id) }}" class="btn btn-sm btn-outline-light">View</a>
+        <form method="post"
+              action="{{ url_for('admin.delete_thread', thread_id=t.id) }}"
+              style="display:inline;"
+              onsubmit="return confirm('Delete thread and all replies?');">
+          <button class="btn btn-sm btn-danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Edit profile - jokes.supergalley.com{% endblock %}
+
+{% block content %}
+<h2>Edit profile</h2>
+<form method="post" enctype="multipart/form-data">
+  <div class="mb-3">
+    <label class="form-label">About me</label>
+    <textarea name="about_me" class="form-control" rows="4">{{ user.profile.about_me if user.profile else '' }}</textarea>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Email address</label>
+    <input type="email" class="form-control" value="{{ user.email }}" readonly>
+    <div class="form-text">This is the email you signed up with.</div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Location</label>
+    <input type="text" name="location" class="form-control"
+           value="{{ user.profile.location if user.profile else '' }}">
+  </div>
+  
+  <div class="mb-3">
+    <label class="form-label">Age</label>
+    <input type="number" name="age" class="form-control"
+           value="{{ user.profile.age if user.profile and user.profile.age }}">
+  </div>
+  
+  <div class="mb-3">
+    <label class="form-label">Facebook / social link</label>
+    <input type="text" name="facebook_url" class="form-control"
+           maxlength="120"
+           value="{{ user.profile.facebook_url if user.profile else '' }}">
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Privacy</label>
+    <table class="table table-dark table-sm align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th style="width:8rem;">Hide on profile</th>
+        </tr>
+      </thead>
+        <tbody>
+          <tr>
+            <td>Location</td>
+            <td>
+              <input type="checkbox" name="hide_location"
+                     {% if user.profile and (user.profile.hide_location is none or user.profile.hide_location) %}checked{% endif %}>
+            </td>
+          </tr>
+          <tr>
+            <td>Age</td>
+            <td>
+              <input type="checkbox" name="hide_age"
+                     {% if user.profile and user.profile.hide_age %}checked{% endif %}>
+            </td>
+          </tr>
+          <tr>
+            <td>Facebook / social link</td>
+            <td>
+              <input type="checkbox" name="hide_facebook"
+                     {% if user.profile and (user.profile.hide_facebook is none or user.profile.hide_facebook) %}checked{% endif %}>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="form-text">
+        Ticked = hidden from your public profile.
+      </div>
+    </div>
+
+
+  <div class="mb-3">
+    <label class="form-label">Profile picture</label>
+    <input type="file" name="profile_picture" class="form-control">
+    {% if user.profile and user.profile.profile_picture %}
+      <small class="text-muted d-block mt-1">
+        Current: {{ user.profile.profile_picture }}
+      </small>
+    {% endif %}
+  </div>
+  <button type="submit" class="btn btn-primary">Save</button>
+</form>
+
+<hr class="my-4">
+<a href="{{ url_for('main.change_password') }}" class="btn btn-sm btn-outline-light">
+  Change password
+</a>
+
+{% endblock %}

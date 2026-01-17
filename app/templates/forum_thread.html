@@ -1,0 +1,368 @@
+{% extends "base.html" %}
+{% block title %}{{ thread.title }} - Forum - jokes.supergalley.com{% endblock %}
+{% block content %}
+  <h2>{{ thread.title }}</h2>
+  {% if current_user.is_authenticated and (current_user.is_admin or current_user.id == thread.user_id) %}
+    <div class="mb-2">
+      <a href="{{ url_for('forum.edit_thread', thread_id=thread.id) }}"
+         class="btn btn-sm btn-outline-light me-2">
+        Edit thread
+      </a>
+      <form method="post"
+            action="{{ url_for('forum.delete_thread', thread_id=thread.id) }}"
+            style="display:inline;"
+            onsubmit="return confirm('Delete this thread and all replies?');">
+        <button type="submit" class="btn btn-sm btn-danger">
+          Delete thread
+        </button>
+      </form>
+    </div>
+  {% endif %}
+  {# Thread starter post (NO reply glow here, because this is not a reply) #}
+  <div class="joke-card">
+    <p style="white-space:pre-wrap;">{{ thread.body }}</p>
+    <small style="color:#bfbfbf; font-size:0.85rem;">
+      {% if thread.author and thread.author.username %}
+        <a href="{{ url_for('main.user_profile', username=thread.author.username) }}">
+          {{ thread.author.username }}
+        </a>
+      {% else %}
+        <span class="muted">Unknown user</span>
+      {% endif %}
+      {% set medals = user_medals.get(thread.author.id) %}
+      {% if medals %}
+        {% if medals.today %}
+          <span class="medal-badge-today"
+                title="{{ medals.today.tooltip }}"
+                aria-label="{{ medals.today.tooltip }}">
+            {{ medals.today.icon }}
+          </span>
+        {% endif %}
+        {% if medals.week %}
+          <span class="medal-badge-week"
+                title="{{ medals.week.tooltip }}"
+                aria-label="{{ medals.week.tooltip }}">
+            {{ medals.week.icon }}
+          </span>
+        {% endif %}
+        {% if medals.all_time %}
+          <span class="medal-badge-alltime"
+                title="{{ medals.all_time.tooltip }}"
+                aria-label="{{ medals.all_time.tooltip }}">
+            {{ medals.all_time.icon }}
+          </span>
+        {% endif %}
+      {% endif %}
+      · {{ thread.created_at.strftime('%d-%m-%Y %H%M') }}
+    </small>
+  </div>
+  <h4 class="mt-3">Replies</h4>
+  {% if replies %}
+    {% for reply in replies %}
+      {# Reply card: apply glow if this reply is new for the user #}
+      <div class="joke-card {% if reply.id in new_reply_ids %}glow-green{% endif %}">
+        <p style="white-space:pre-wrap;">{{ reply.body }}</p>
+        <small style="color:#bfbfbf; font-size:0.8rem;">
+          {{ reply.author.username }}
+          {% set medals = user_medals.get(reply.author.id) %}
+          {% if medals %}
+            {% if medals.today %}
+              <span class="medal-badge-today"
+                    title="{{ medals.today.tooltip }}"
+                    aria-label="{{ medals.today.tooltip }}">
+                {{ medals.today.icon }}
+              </span>
+            {% endif %}
+            {% if medals.week %}
+              <span class="medal-badge-week"
+                    title="{{ medals.week.tooltip }}"
+                    aria-label="{{ medals.week.tooltip }}">
+                {{ medals.week.icon }}
+              </span>
+            {% endif %}
+            {% if medals.all_time %}
+              <span class="medal-badge-alltime"
+                    title="{{ medals.all_time.tooltip }}"
+                    aria-label="{{ medals.all_time.tooltip }}">
+                {{ medals.all_time.icon }}
+              </span>
+            {% endif %}
+          {% endif %}
+          ({{ reply.author.reputation or 0 }})
+          · {{ reply.created_at.strftime('%d-%m-%Y %H%M') }}
+        </small>
+        {% if current_user.is_authenticated and (current_user.is_admin or current_user.id == reply.user_id) %}
+          <div class="mt-1">
+            <a href="{{ url_for('forum.edit_reply', reply_id=reply.id) }}"
+               class="btn btn-sm btn-outline-light btn-xs me-1">
+              Edit
+            </a>
+            <form method="post"
+                  action="{{ url_for('forum.delete_reply', reply_id=reply.id) }}"
+                  style="display:inline;"
+                  onsubmit="return confirm('Delete this reply?');">
+              <button type="submit" class="btn btn-sm btn-danger btn-xs">
+                Delete
+              </button>
+            </form>
+          </div>
+        {% endif %}
+        <!-- Reaction bar -->
+        <div class="d-flex align-items-center mt-1">
+          <div class="reply-reactions d-flex align-items-center ms-auto"
+               data-reply-id="{{ reply.id }}"
+               data-react-url="{{ url_for('forum.react_to_reply', reply_id=reply.id) }}"
+               data-users-url-template="{{ url_for('forum.reaction_users', reply_id=reply.id, reaction_type='__TYPE__') }}">
+            {# Summary icons on the right with counts #}
+            <div class="reaction-summary d-flex align-items-center me-2">
+              {% set summary = reaction_summary.get(reply.id, {}) %}
+              {% for rtype, meta in reaction_types.items() %}
+                {% if summary.get(rtype) %}
+                  <button type="button"
+                          class="btn btn-link btn-sm p-0 mx-1 reaction-summary-icon"
+                          data-reaction-type="{{ rtype }}">
+                    <span class="reaction-summary-emoji">{{ meta.emoji }}</span>
+                    <span class="reaction-summary-count">{{ summary.get(rtype) }}</span>
+                  </button>
+                {% endif %}
+              {% endfor %}
+            </div>
+            {# Main button: Like / or current emoji #}
+            {% if current_user.is_authenticated %}
+              {% set user_rtype = user_reactions.get(reply.id) %}
+              {% set current_meta = reaction_types.get(user_rtype) if user_rtype else None %}
+              <button type="button"
+                      class="btn btn-sm btn-link p-0 reaction-trigger"
+                      data-current-reaction="{{ user_rtype or 'none' }}">
+                <span class="reaction-main-emoji {% if not user_rtype %}reaction-main-empty{% endif %}">
+                  {{ current_meta.emoji if current_meta else "👍" }}
+                </span>
+                <span class="reaction-main-label">
+                  {{ current_meta.label if current_meta else "Like" }}
+                </span>
+              </button>
+            {% else %}
+              <span class="text-muted small">Log in to react</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>No replies yet.</p>
+  {% endif %}
+  {% if current_user.is_authenticated %}
+    <form method="post"
+          action="{{ url_for('forum.view_thread', thread_id=thread.id) }}"
+          class="mt-3">
+      <div class="mb-3">
+        <label class="form-label">Add reply</label>
+        <textarea name="body" class="form-control" rows="4" required></textarea>
+      </div>
+      <button class="btn btn-primary" type="submit">Post reply</button>
+    </form>
+  {% else %}
+    <p>You need to <a href="{{ url_for('auth.login') }}">log in</a> to reply.</p>
+  {% endif %}
+{% endblock %}
+{% block scripts %}
+  {{ super() }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const reactionTypes = {{ reaction_types|tojson }};
+      const picker = createReactionPicker();
+      const userTooltip = createUserTooltip();
+      let hideTimer = null;
+      function createReactionPicker() {
+        const div = document.createElement('div');
+        div.className = 'reaction-picker';
+        for (const [rtype, meta] of Object.entries(reactionTypes)) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.reactionType = rtype;
+          btn.textContent = meta.emoji;
+          div.appendChild(btn);
+        }
+        document.body.appendChild(div);
+        return div;
+      }
+      function createUserTooltip() {
+        const div = document.createElement('div');
+        div.className = 'reaction-users-tooltip';
+        document.body.appendChild(div);
+        return div;
+      }
+      function showPicker(targetButton) {
+        const rect = targetButton.getBoundingClientRect();
+        picker.style.display = 'block';
+        picker.style.left = (rect.left + rect.width / 2 - picker.offsetWidth / 2) + 'px';
+        picker.style.top = (rect.top - picker.offsetHeight - 8 + window.scrollY) + 'px';
+        const wrapper = targetButton.closest('.reply-reactions');
+        picker.dataset.replyId = wrapper.dataset.replyId;
+      }
+      function hidePicker() {
+        picker.style.display = 'none';
+        delete picker.dataset.replyId;
+      }
+      function showUserTooltipAt(button, usernames) {
+        if (!usernames || !usernames.length) {
+          userTooltip.style.display = 'none';
+          return;
+        }
+        userTooltip.innerHTML = '';
+        const title = document.createElement('div');
+        title.className = 'reaction-users-title';
+        title.textContent = usernames.length + (usernames.length === 1 ? ' user' : ' users');
+        const list = document.createElement('div');
+        list.className = 'reaction-users-list';
+        list.textContent = usernames.join(', ');
+        userTooltip.appendChild(title);
+        userTooltip.appendChild(list);
+        const rect = button.getBoundingClientRect();
+        userTooltip.style.display = 'block';
+        userTooltip.style.left = (rect.left + rect.width / 2 - userTooltip.offsetWidth / 2) + 'px';
+        userTooltip.style.top = (rect.bottom + 8 + window.scrollY) + 'px';
+      }
+      function hideUserTooltip() {
+        userTooltip.style.display = 'none';
+      }
+      picker.addEventListener('click', function (e) {
+        const btn = e.target.closest('button[data-reaction-type]');
+        if (!btn) return;
+        const replyId = picker.dataset.replyId;
+        const rtype = btn.dataset.reactionType;
+        if (!replyId || !rtype) return;
+        sendReaction(replyId, rtype);
+        hidePicker();
+      });
+      picker.addEventListener('mouseenter', function () {
+        if (hideTimer) {
+          clearTimeout(hideTimer);
+          hideTimer = null;
+        }
+      });
+      picker.addEventListener('mouseleave', function (e) {
+        if (!picker.contains(e.relatedTarget)) {
+          hidePicker();
+        }
+      });
+      document.addEventListener('click', function (e) {
+        if (!picker.contains(e.target) && !e.target.closest('.reaction-trigger')) {
+          hidePicker();
+        }
+        if (!userTooltip.contains(e.target) && !e.target.closest('.reaction-summary-icon')) {
+          hideUserTooltip();
+        }
+      });
+      function sendReaction(replyId, reactionType) {
+        const wrapper = document.querySelector('.reply-reactions[data-reply-id="' + replyId + '"]');
+        if (!wrapper) return;
+        const url = wrapper.dataset.reactUrl;
+        axios.post(url, {
+          reaction_type: reactionType
+        }).then(resp => {
+          const data = resp.data;
+          updateUIForReply(data.reply_id, data.user_reaction, data.counts);
+        }).catch(err => {
+          console.error('Reaction failed', err);
+        });
+      }
+      function updateUIForReply(replyId, userReaction, counts) {
+        const wrapper = document.querySelector('.reply-reactions[data-reply-id="' + replyId + '"]');
+        if (!wrapper) return;
+        const trigger = wrapper.querySelector('.reaction-trigger');
+        if (trigger) {
+          const emojiSpan = trigger.querySelector('.reaction-main-emoji');
+          const labelSpan = trigger.querySelector('.reaction-main-label');
+          if (!userReaction) {
+            trigger.dataset.currentReaction = 'none';
+            emojiSpan.textContent = "👍";
+            emojiSpan.classList.add('reaction-main-empty');
+            labelSpan.textContent = "Like";
+          } else {
+            const meta = reactionTypes[userReaction];
+            trigger.dataset.currentReaction = userReaction;
+            emojiSpan.textContent = meta.emoji;
+            emojiSpan.classList.remove('reaction-main-empty');
+            labelSpan.textContent = meta.label;
+          }
+        }
+        const summaryDiv = wrapper.querySelector('.reaction-summary');
+        if (summaryDiv) {
+          summaryDiv.innerHTML = '';
+          for (const [rtype, meta] of Object.entries(reactionTypes)) {
+            if (counts && counts[rtype]) {
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'btn btn-link btn-sm p-0 mx-1 reaction-summary-icon';
+              btn.dataset.reactionType = rtype;
+
+              const eSpan = document.createElement('span');
+              eSpan.className = 'reaction-summary-emoji';
+              eSpan.textContent = meta.emoji;
+
+              const cSpan = document.createElement('span');
+              cSpan.className = 'reaction-summary-count';
+              cSpan.textContent = counts[rtype];
+
+              btn.appendChild(eSpan);
+              btn.appendChild(cSpan);
+              summaryDiv.appendChild(btn);
+            }
+          }
+        }
+      }
+      document.querySelectorAll('.reply-reactions .reaction-trigger').forEach(btn => {
+        btn.addEventListener('click', function () {
+          if (picker.style.display === 'block') {
+            hidePicker();
+          }
+          const wrapper = btn.closest('.reply-reactions');
+          const replyId = wrapper.dataset.replyId;
+          const current = btn.dataset.currentReaction || 'none';
+          const next = (current === 'none') ? 'like' : 'none';
+          sendReaction(replyId, next);
+        });
+        btn.addEventListener('mouseenter', function () {
+          showPicker(btn);
+        });
+        btn.addEventListener('mouseleave', function (e) {
+          hideTimer = setTimeout(() => {
+            if (!picker.contains(e.relatedTarget)) {
+              hidePicker();
+            }
+          }, 300);
+        });
+        let touchTimer = null;
+        btn.addEventListener('touchstart', function () {
+          touchTimer = setTimeout(() => {
+            showPicker(btn);
+          }, 600);
+        });
+        btn.addEventListener('touchend', function () {
+          if (touchTimer) clearTimeout(touchTimer);
+        });
+      });
+      document.querySelectorAll('.reply-reactions .reaction-summary').forEach(summaryDiv => {
+        summaryDiv.addEventListener('click', function (e) {
+          const iconBtn = e.target.closest('.reaction-summary-icon');
+          if (!iconBtn) return;
+          const wrapper = summaryDiv.closest('.reply-reactions');
+          const replyId = wrapper.dataset.replyId;
+          const rtype = iconBtn.dataset.reactionType;
+          const template = wrapper.dataset.usersUrlTemplate;
+          const url = template.replace('__TYPE__', rtype);
+          axios.get(url)
+            .then(resp => {
+              const data = resp.data;
+              const names = data.usernames || [];
+              showUserTooltipAt(iconBtn, names);
+            })
+            .catch(err => {
+              console.error('Failed to load reaction users', err);
+            });
+        });
+      });
+    });
+  </script>
+{% endblock %}

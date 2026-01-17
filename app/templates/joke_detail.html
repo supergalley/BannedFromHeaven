@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+{% block title %}{{ joke.title }} - BannedFromHeaven.com{% endblock %}
+{% block content %}
+{# admin / author controls #}
+<!-- DEBUG: me={{ current_user.id }} auth={{ current_user.is_authenticated }} admin={{ current_user.is_admin }} joke.user_id={{ joke.user_id }} -->
+<div class="joke-card d-flex mt-3">
+  <div class="me-3 text-center">
+    {% if current_user.is_authenticated and (current_user.is_admin or current_user.id == joke.user_id) %}
+    <div class="mb-2">
+      <a href="{{ url_for('main.edit_joke', joke_id=joke.id) }}"
+         class="btn btn-sm btn-outline-light me-2">Edit Joke</a>
+      <form action="{{ url_for('main.delete_joke', joke_id=joke.id) }}"
+            method="post"
+            style="display:inline;"
+            onsubmit="return confirm('Delete this post?');">
+        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+      </form>
+    </div>
+  {% endif %}
+    {% if current_user.is_authenticated %}
+      <div class="vote-btn {% if user_vote == 1 %}voted-up{% endif %}" data-id="{{ joke.id }}" data-dir="up">⬆</div>
+    {% else %}
+      <div>⬆</div>
+    {% endif %}
+    <div id="score-{{ joke.id }}">{{ joke.score }}</div>
+    {% if current_user.is_authenticated %}
+      <div class="vote-btn {% if user_vote == -1 %}voted-down{% endif %}" data-id="{{ joke.id }}" data-dir="down">⬇</div>
+    {% else %}
+      <div>⬇</div>
+    {% endif %}
+  </div>
+  <div class="flex-grow-1">
+    {% if joke.body %}
+      <p class="mt-3" style="white-space:pre-wrap;">{{ joke.body }}</p>
+    {% endif %}
+    <small style="color:#bfbfbf; font-size:0.85rem;">
+      {% if joke.author and joke.author.username %}
+        <a href="{{ url_for('main.user_profile', username=joke.author.username) }}">
+          {{ joke.author.username }}
+        </a>
+      {% else %}
+        <span class="muted">Unknown user</span>
+      {% endif %}
+      {% set medals = user_medals.get(joke.author.id) %}
+      {% if medals %}
+        {% if medals.today %}
+          <span class="medal-badge-today"
+                title="{{ medals.today.tooltip }}"
+                aria-label="{{ medals.today.tooltip }}">
+            {{ medals.today.icon }}
+          </span>
+        {% endif %}
+        {% if medals.week %}
+          <span class="medal-badge-week"
+                title="{{ medals.week.tooltip }}"
+                aria-label="{{ medals.week.tooltip }}">
+            {{ medals.week.icon }}
+          </span>
+        {% endif %}
+        {% if medals.all_time %}
+          <span class="medal-badge-alltime"
+                title="{{ medals.all_time.tooltip }}"
+                aria-label="{{ medals.all_time.tooltip }}">
+            {{ medals.all_time.icon }}
+          </span>
+        {% endif %}
+      {% endif %}
+      ({{ joke.author.reputation or 0 }})
+      · {{ joke.created_at.strftime('%d-%m-%Y %H%M') }}
+    </small>
+    {% if joke.is_meme and joke.image_filename %}
+      <img src="{{ UPLOADS_URL }}/{{ joke.image_filename|urlencode }}"
+           class="img-fluid mb-3"
+           style="max-width: 100%; border-radius: 8px;">
+    {% endif %}
+    {% if joke.is_clip and joke.video_filename %}
+      <div class="mb-2">
+        <video controls preload="none"
+               {% if joke.video_thumb %}poster="{{ THUMBS_URL }}/{{ joke.video_thumb|urlencode }}"{% endif %}
+               style="width:100%; max-height:420px;">
+          <source src="{{ CLIPS_URL }}/{{ joke.video_filename|urlencode }}" type="video/mp4">
+        </video>
+      </div>
+    {% endif %}
+  </div>
+</div>
+<hr>
+<h5>Comments</h5>
+{% if comments %}
+{% for c in comments %}
+  <div class="joke-card">
+    <p style="white-space:pre-wrap;">
+      {% if c.author.is_admin %}
+        {{ c.body|safe }}
+      {% else %}
+        {{ c.body }}
+      {% endif %}
+    </p>
+    <small style="color:#bfbfbf; font-size:0.8rem;">
+      {{ c.author.username }}
+      {# add any medals/profile bits you want, similar to forum replies #}
+      · {{ c.created_at.strftime('%d-%m-%Y %H%M') }}
+    </small>
+    <div class="d-flex align-items-center mt-1">
+      <div class="me-auto">
+        {% if current_user.is_authenticated and (current_user.is_admin or current_user.id == c.user_id) %}
+          <a class="btn btn-sm btn-outline-light"
+            href="{{ url_for('main.edit_comment', comment_id=c.id) }}">Edit</a>
+        {% endif %}
+      </div>
+      {# <<< REACTION WIDGET (same classes as forum replies) >>> #}
+      <div class="reply-reactions d-flex align-items-center ms-auto"
+           data-reply-id="{{ c.id }}"
+           data-react-url="{{ url_for('main.react_to_joke_comment', comment_id=c.id) }}"
+           data-users-url-template="{{ url_for('main.joke_comment_reaction_users',
+                                              comment_id=c.id,
+                                              reaction_type='__TYPE__') }}">
+        <div class="reaction-summary d-flex align-items-center me-2">
+          {% set summary = reaction_summary.get(c.id, {}) %}
+          {% for rtype, meta in reaction_types.items() %}
+            {% if summary.get(rtype) %}
+              <button type="button"
+                      class="btn btn-link btn-sm p-0 mx-1 reaction-summary-icon"
+                      data-reaction-type="{{ rtype }}">
+                <span class="reaction-summary-emoji">{{ meta.emoji }}</span>
+                <span class="reaction-summary-count">{{ summary.get(rtype) }}</span>
+              </button>
+            {% endif %}
+          {% endfor %}
+        </div>
+        {% if current_user.is_authenticated %}
+          {% set user_rtype = user_reactions.get(c.id) %}
+          {% set current_meta = reaction_types.get(user_rtype) if user_rtype else None %}
+          <button type="button"
+                  class="btn btn-sm btn-link p-0 reaction-trigger"
+                  data-current-reaction="{{ user_rtype or 'none' }}">
+            <span class="reaction-main-emoji {% if not user_rtype %}reaction-main-empty{% endif %}">
+              {{ current_meta.emoji if current_meta else "👍" }}
+            </span>
+            <span class="reaction-main-label">
+              {{ current_meta.label if current_meta else "Like" }}
+            </span>
+          </button>
+        {% else %}
+          <span class="text-muted small">Log in to react</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endfor %}
+{% else %}
+  <p>No comments yet.</p>
+{% endif %}
+{% if current_user.is_authenticated %}
+  <form method="post" action="{{ url_for('main.add_comment', joke_id=joke.id) }}" class="mt-3">
+    <div class="mb-2">
+      <label class="form-label">Add a comment</label>
+      <textarea name="body" rows="3" class="form-control" required></textarea>
+    </div>
+    <button type="submit" class="btn btn-sm btn-primary">Post comment</button>
+  </form>
+{% else %}
+  <p class="mt-3">
+    <a href="{{ url_for('auth.login') }}">Login</a> to comment.
+  </p>
+{% endif %}
+<div class="mt-3">
+  {% if current_user.is_authenticated
+      and (current_user.is_admin or current_user.is_moderator)
+      and not joke.is_quarantined %}
+  <form method="post"
+      action="{{ url_for('main.quarantine_joke', joke_id=joke.id) }}"
+      class="d-inline">
+    <button type="submit"
+          class="btn btn-sm btn-outline-warning"
+          onclick="return confirm('Send this joke to quarantine for admin review? It will disappear from public lists.');">
+      Quarantine joke
+    </button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+  {{ super() }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // ----- Original joke vote logic (detail page) -----
+      function updateVoteGlowDetail(jokeId, direction) {
+        const upBtn = document.querySelector(`.vote-btn[data-id="${jokeId}"][data-dir="up"]`);
+        const downBtn = document.querySelector(`.vote-btn[data-id="${jokeId}"][data-dir="down"]`);
+        if (!upBtn || !downBtn) return;
+        const upActive = upBtn.classList.contains('voted-up');
+        const downActive = downBtn.classList.contains('voted-down');
+        let newUp = upActive;
+        let newDown = downActive;
+        if (direction === 'up') {
+          if (upActive) {
+            // UPVOTE TRUE, Tap Up → clear both
+            newUp = false;
+            newDown = false;
+          } else {
+            // UPVOTE FALSE (neutral or down), Tap Up → Up = TRUE, Down = FALSE
+            newUp = true;
+            newDown = false;
+          }
+        } else if (direction === 'down') {
+          if (downActive) {
+            // DOWNVOTE TRUE, Tap Down → clear both
+            newUp = false;
+            newDown = false;
+          } else {
+            // DOWNVOTE FALSE (neutral or up), Tap Down → Down = TRUE, Up = FALSE
+            newUp = false;
+            newDown = true;
+          }
+        }
+        upBtn.classList.toggle('voted-up', newUp);
+        downBtn.classList.toggle('voted-down', newDown);
+      }
+      // Attach vote handlers for this joke page
+      document.querySelectorAll('.vote-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.id;
+          const direction = btn.dataset.dir;
+          axios.post(`/api/jokes/${id}/vote`, { direction })
+            .then(resp => {
+              if (resp.data && typeof resp.data.score !== 'undefined') {
+                const scoreEl = document.getElementById(`score-${id}`);
+                if (scoreEl) {
+                  scoreEl.innerText = resp.data.score;
+                }
+              }
+              // Local UI update based on click + current glow state
+              updateVoteGlowDetail(id, direction);
+            })
+            .catch(err => console.error(err));
+        });
+      });
+      // ---------- Comment reaction system (same as forum replies) ----------
+      const reactionTypes = {{ reaction_types|tojson }};
+      const picker = createReactionPicker();
+      const userTooltip = createUserTooltip();
+      let hideTimer = null;
+      function createReactionPicker() {
+        const div = document.createElement('div');
+        div.className = 'reaction-picker';
+        for (const [rtype, meta] of Object.entries(reactionTypes)) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.reactionType = rtype;
+          btn.textContent = meta.emoji;
+          div.appendChild(btn);
+        }
+        document.body.appendChild(div);
+        return div;
+      }
+      function createUserTooltip() {
+        const div = document.createElement('div');
+        div.className = 'reaction-users-tooltip';
+        document.body.appendChild(div);
+        return div;
+      }
+      function showPicker(targetButton) {
+        const rect = targetButton.getBoundingClientRect();
+        picker.style.display = 'block';
+        picker.style.left = (rect.left + rect.width / 2 - picker.offsetWidth / 2) + 'px';
+        picker.style.top = (rect.top - picker.offsetHeight - 8 + window.scrollY) + 'px';
+        const wrapper = targetButton.closest('.reply-reactions');
+        picker.dataset.replyId = wrapper.dataset.replyId;
+      }
+      function hidePicker() {
+        picker.style.display = 'none';
+        delete picker.dataset.replyId;
+      }
+      function showUserTooltipAt(button, usernames) {
+        if (!usernames || !usernames.length) {
+          userTooltip.style.display = 'none';
+          return;
+        }
+        userTooltip.innerHTML = '';
+        const title = document.createElement('div');
+        title.className = 'reaction-users-title';
+        title.textContent = usernames.length + (usernames.length === 1 ? ' user' : ' users');
+        const list = document.createElement('div');
+        list.className = 'reaction-users-list';
+        list.textContent = usernames.join(', ');
+        userTooltip.appendChild(title);
+        userTooltip.appendChild(list);
+        const rect = button.getBoundingClientRect();
+        userTooltip.style.display = 'block';
+        userTooltip.style.left = (rect.left + rect.width / 2 - userTooltip.offsetWidth / 2) + 'px';
+        userTooltip.style.top = (rect.bottom + 8 + window.scrollY) + 'px';
+      }
+      function hideUserTooltip() {
+        userTooltip.style.display = 'none';
+      }
+      // Click on an emoji in the picker
+      picker.addEventListener('click', function (e) {
+        const btn = e.target.closest('button[data-reaction-type]');
+        if (!btn) return;
+        const replyId = picker.dataset.replyId;
+        const rtype = btn.dataset.reactionType;
+        if (!replyId || !rtype) return;
+        sendReaction(replyId, rtype);
+        hidePicker();
+      });
+      // Keep picker open if mouse goes into it
+      picker.addEventListener('mouseenter', function () {
+        if (hideTimer) {
+          clearTimeout(hideTimer);
+          hideTimer = null;
+        }
+      });
+      picker.addEventListener('mouseleave', function (e) {
+        if (!picker.contains(e.relatedTarget)) {
+          hidePicker();
+        }
+      });
+      // Hide picker & tooltip when clicking elsewhere
+      document.addEventListener('click', function (e) {
+        if (!picker.contains(e.target) && !e.target.closest('.reaction-trigger')) {
+          hidePicker();
+        }
+        if (!userTooltip.contains(e.target) && !e.target.closest('.reaction-summary-icon')) {
+          hideUserTooltip();
+        }
+      });
+      function sendReaction(replyId, reactionType) {
+        const wrapper = document.querySelector('.reply-reactions[data-reply-id="' + replyId + '"]');
+        if (!wrapper) return;
+        const url = wrapper.dataset.reactUrl;
+        axios.post(url, {
+          reaction_type: reactionType
+        }).then(resp => {
+          const data = resp.data;
+          // for joke comments we return "comment_id", for forum replies "reply_id"
+          updateUIForReply(data.comment_id || data.reply_id, data.user_reaction, data.counts);
+        }).catch(err => {
+          console.error('Reaction failed', err);
+        });
+      }
+      function updateUIForReply(replyId, userReaction, counts) {
+        const wrapper = document.querySelector('.reply-reactions[data-reply-id="' + replyId + '"]');
+        if (!wrapper) return;
+        const trigger = wrapper.querySelector('.reaction-trigger');
+        if (trigger) {
+          const emojiSpan = trigger.querySelector('.reaction-main-emoji');
+          const labelSpan = trigger.querySelector('.reaction-main-label');
+          if (!userReaction) {
+            trigger.dataset.currentReaction = 'none';
+            emojiSpan.textContent = "👍";
+            emojiSpan.classList.add('reaction-main-empty');
+            labelSpan.textContent = "Like";
+          } else {
+            const meta = reactionTypes[userReaction];
+            trigger.dataset.currentReaction = userReaction;
+            emojiSpan.textContent = meta.emoji;
+            emojiSpan.classList.remove('reaction-main-empty');
+            labelSpan.textContent = meta.label;
+          }
+        }
+        const summaryDiv = wrapper.querySelector('.reaction-summary');
+        if (summaryDiv) {
+          summaryDiv.innerHTML = '';
+          for (const [rtype, meta] of Object.entries(reactionTypes)) {
+            if (counts && counts[rtype]) {
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'btn btn-link btn-sm p-0 mx-1 reaction-summary-icon';
+              btn.dataset.reactionType = rtype;
+
+              const eSpan = document.createElement('span');
+              eSpan.className = 'reaction-summary-emoji';
+              eSpan.textContent = meta.emoji;
+
+              const cSpan = document.createElement('span');
+              cSpan.className = 'reaction-summary-count';
+              cSpan.textContent = counts[rtype];
+
+              btn.appendChild(eSpan);
+              btn.appendChild(cSpan);
+              summaryDiv.appendChild(btn);
+            }
+          }
+        }
+      }
+      // Main reaction button click behaviour
+      document.querySelectorAll('.reply-reactions .reaction-trigger').forEach(btn => {
+        btn.addEventListener('click', function () {
+          // If picker is open, close it but still toggle
+          if (picker.style.display === 'block') {
+            hidePicker();
+          }
+          const wrapper = btn.closest('.reply-reactions');
+          const replyId = wrapper.dataset.replyId;
+          const current = btn.dataset.currentReaction || 'none';
+          // If none → Like, otherwise clear back to outline 👍
+          const next = (current === 'none') ? 'like' : 'none';
+          sendReaction(replyId, next);
+        });
+        // Hover: show picker, but with a little stickiness
+        btn.addEventListener('mouseenter', function () {
+          showPicker(btn);
+        });
+        btn.addEventListener('mouseleave', function (e) {
+          hideTimer = setTimeout(() => {
+            if (!picker.contains(e.relatedTarget)) {
+              hidePicker();
+            }
+          }, 300);
+        });
+        // Long press (touch): show picker
+        let touchTimer = null;
+        btn.addEventListener('touchstart', function () {
+          touchTimer = setTimeout(() => {
+            showPicker(btn);
+          }, 600);
+        });
+        btn.addEventListener('touchend', function () {
+          if (touchTimer) clearTimeout(touchTimer);
+        });
+      });
+      // Clicking summary icons: show usernames tooltip
+      document.querySelectorAll('.reply-reactions .reaction-summary').forEach(summaryDiv => {
+        summaryDiv.addEventListener('click', function (e) {
+          const iconBtn = e.target.closest('.reaction-summary-icon');
+          if (!iconBtn) return;
+          const wrapper = summaryDiv.closest('.reply-reactions');
+          const replyId = wrapper.dataset.replyId;
+          const rtype = iconBtn.dataset.reactionType;
+          const template = wrapper.dataset.usersUrlTemplate;  // contains "__TYPE__"
+          const url = template.replace('__TYPE__', rtype);
+          axios.get(url)
+            .then(resp => {
+              const data = resp.data;
+              const names = data.usernames || [];
+              showUserTooltipAt(iconBtn, names);
+            })
+            .catch(err => {
+              console.error('Failed to load reaction users', err);
+            });
+        });
+      });
+    });
+  </script>
+{% endblock %}

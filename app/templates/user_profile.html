@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}{{ profile_user.username }} - Profile - jokes.supergalley.com{% endblock %}
+
+{% block content %}
+<h2>
+  {{ profile_user.username }}
+  {% set medals = user_medals.get(profile_user.id) %}
+  {% if medals %}
+    {% if medals.today %}
+      <span class="medal-badge-today"
+            title="{{ medals.today.tooltip }}"
+            aria-label="{{ medals.today.tooltip }}">
+        {{ medals.today.icon }}
+      </span>
+    {% endif %}
+    {% if medals.week %}
+      <span class="medal-badge-week"
+            title="{{ medals.week.tooltip }}"
+            aria-label="{{ medals.week.tooltip }}">
+        {{ medals.week.icon }}
+      </span>
+    {% endif %}
+    {% if medals.all_time %}
+      <span class="medal-badge-alltime"
+            title="{{ medals.all_time.tooltip }}"
+            aria-label="{{ medals.all_time.tooltip }}">
+        {{ medals.all_time.icon }}
+      </span>
+    {% endif %}
+  {% endif %}
+</h2>
+<div class="row mb-3">
+  <div class="col-md-3 mb-3">
+    {% if profile_user.profile and profile_user.profile.profile_picture %}
+      <img src="{{ MEDIA_BASE }}{{ url_for('main.uploaded_file', filename=profile_user.profile.profile_picture) }}"
+           class="img-fluid rounded"
+           alt="Profile picture">
+    {% else %}
+      <div class="border rounded bg-dark text-center py-4 text-muted">
+        No profile picture
+      </div>
+    {% endif %}
+  </div>
+  <div class="col-md-9">
+    {% if profile_user.profile %}
+      {% if profile_user.profile.about_me %}
+        <p style="white-space:pre-wrap;">{{ profile_user.profile.about_me }}</p>
+      {% endif %}
+
+#
+      <ul class="list-unstyled small">
+        {% if profile_user.profile.show_location and profile_user.profile.location %}
+          <li><strong>Location:</strong> {{ profile_user.profile.location }}</li>
+        {% endif %}
+
+        {% if profile_user.profile.show_age and profile_user.profile.age %}
+          <li><strong>Age:</strong> {{ profile_user.profile.age }}</li>
+        {% endif %}
+
+        {% if profile_user.profile.show_facebook and profile_user.profile.facebook_url %}
+          <li>
+            <strong>Facebook / social:</strong>
+            <a href="{{ profile_user.profile.facebook_url }}" target="_blank" rel="noopener">
+              {{ profile_user.profile.facebook_url }}
+            </a>
+          </li>
+        {% endif %}
+      </ul>
+
+   {% else %}
+      <p>This user hasn't filled out their profile yet.</p>
+    {% endif %}
+
+    {% if current_user.is_authenticated %}
+      {% if current_user.id == profile_user.id %}
+        <a href="{{ url_for('main.edit_profile') }}" class="btn btn-sm btn-outline-light">Edit profile</a>
+      {% else %}
+        <a href="{{ url_for('main.send_message', username=profile_user.username) }}"
+           class="btn btn-sm btn-primary">
+          Send message
+        </a>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+<h3>
+  Jokes by {{ profile_user.username }}
+  {% set medals = user_medals.get(profile_user.id) %}
+  {% if medals %}
+    {% if medals.today %}
+      <span class="medal-badge-today"
+            title="{{ medals.today.tooltip }}"
+            aria-label="{{ medals.today.tooltip }}">
+        {{ medals.today.icon }}
+      </span>
+    {% endif %}
+    {% if medals.week %}
+      <span class="medal-badge-week"
+            title="{{ medals.week.tooltip }}"
+            aria-label="{{ medals.week.tooltip }}">
+        {{ medals.week.icon }}
+      </span>
+    {% endif %}
+    {% if medals.all_time %}
+      <span class="medal-badge-alltime"
+            title="{{ medals.all_time.tooltip }}"
+            aria-label="{{ medals.all_time.tooltip }}">
+        {{ medals.all_time.icon }}
+      </span>
+    {% endif %}
+  {% endif %}
+</h3>
+{% if jokes %}
+  <table class="table table-dark table-striped table-sm align-middle">
+    <thead>
+      <tr>
+        <th scope="col">Score</th>
+        <th scope="col">Posted</th>
+        <th scope="col">Joke</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for joke in jokes %}
+        <tr>
+          <td>{{ joke.score }}</td>
+          <td>{{ joke.created_at.strftime('%d-%m-%Y %H:%M') }}</td>
+          <td>
+            <a href="{{ url_for('main.joke_detail', joke_id=joke.id) }}">
+              {{ (joke.title or joke.body[:80]) }}
+            </a>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p>No jokes posted yet.</p>
+{% endif %}
+
+{% if current_user.is_authenticated and (current_user.is_admin or current_user.is_moderator) and current_user.id != profile_user.id and not profile_user.is_admin %}
+<form method="post"
+      action="{{ url_for('main.moderator_ban_24h', user_id=profile_user.id) }}"
+      class="d-inline">
+  <button class="btn btn-sm btn-outline-danger"
+          onclick="return confirm('Ban this user from the site for 24 hours?');">
+    24h Ban
+  </button>
+</form>
+{% endif %}
+
+
+{% endblock %}

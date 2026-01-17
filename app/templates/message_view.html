@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Conversation - jokes.supergalley.com{% endblock %}
+{% block content %}
+<h2>Conversation with
+  <a href="{{ url_for('main.user_profile', username=other_user.username) }}">
+    {{ other_user.username }}
+  </a>
+  <form method="post"
+        action="{{ url_for('main.delete_thread', user_id=other_user.id) }}"
+        class="d-inline float-end"
+        onsubmit="return confirm('Delete this entire conversation?');">
+    <button class="btn btn-sm btn-outline-danger">Delete thread</button>
+  </form>
+
+  {% set medals = user_medals.get(other_user.id) %}
+  {% if medals %}
+    {% if medals.today %}
+      <span class="medal-badge-today"
+            title="{{ medals.today.tooltip }}"
+            aria-label="{{ medals.today.tooltip }}">
+        {{ medals.today.icon }}
+      </span>
+    {% endif %}
+    {% if medals.week %}
+      <span class="medal-badge-week"
+            title="{{ medals.week.tooltip }}"
+            aria-label="{{ medals.week.tooltip }}">
+        {{ medals.week.icon }}
+      </span>
+    {% endif %}
+    {% if medals.all_time %}
+      <span class="medal-badge-alltime"
+            title="{{ medals.all_time.tooltip }}"
+            aria-label="{{ medals.all_time.tooltip }}">
+        {{ medals.all_time.icon }}
+      </span>
+    {% endif %}
+  {% endif %}
+</h2>
+<div class="mt-3">
+  {% if thread %}
+    {% for m in thread %}
+      <div class="card mb-3 text-light"
+           style="background-color:
+                  {% if m.sender_id == current_user.id %}
+                    #1e1e1e
+                  {% else %}
+                    #4d0000
+                  {% endif %};">
+        <div class="card-body">
+          <div class="d-flex justify-content-between">
+            <div>
+            <strong>
+              {% if m.sender_id == current_user.id %}
+                You
+              {% else %}
+                {{ other_user.username }}
+                  {% set medals = user_medals.get(other_user.id) %}
+                  {% if medals %}
+                    {% if medals.today %}
+                      <span class="medal-badge-today"
+                            title="{{ medals.today.tooltip }}"
+                            aria-label="{{ medals.today.tooltip }}">
+                        {{ medals.today.icon }}
+                      </span>
+                    {% endif %}
+                    {% if medals.week %}
+                      <span class="medal-badge-week"
+                            title="{{ medals.week.tooltip }}"
+                            aria-label="{{ medals.week.tooltip }}">
+                        {{ medals.week.icon }}
+                      </span>
+                    {% endif %}
+                    {% if medals.all_time %}
+                      <span class="medal-badge-alltime"
+                            title="{{ medals.all_time.tooltip }}"
+                            aria-label="{{ medals.all_time.tooltip }}">
+                        {{ medals.all_time.icon }}
+                      </span>
+                    {% endif %}
+                  {% endif %}
+                {% endif %}
+            </strong>
+              {% if m.subject %}<span class="ms-2">{{ m.subject }}</span>{% endif %}
+            </div>
+          </div>
+          <p class="mt-2" style="white-space:pre-wrap;">{{ m.body }}</p>
+          <p class="mb-0">
+            <small style="color: #00eaff;">
+              Sent {{ m.created_at.strftime('%H%M %d%m%Y') }}
+            </small>
+            <form method="post"
+                action="{{ url_for('main.delete_message', message_id=m.id) }}"
+                class="mt-2"
+                onsubmit="return confirm('Delete this message?');">
+              <button class="btn btn-sm btn-outline-danger">Delete</button>
+            </form>
+          </p>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>No messages in this conversation yet.</p>
+  {% endif %}
+</div>
+<hr>
+<h5>Reply</h5>
+<form method="post" class="mt-2">
+  <div class="mb-2">
+    <input type="text"
+           name="subject"
+           class="form-control form-control-sm"
+           placeholder="Subject (optional)">
+  </div>
+  <div class="mb-2">
+    <textarea name="body"
+              class="form-control"
+              rows="3"
+              placeholder="Type your reply"></textarea>
+  </div>
+  <button type="submit" class="btn btn-primary btn-sm">Send reply</button>
+  <a href="{{ url_for('main.inbox') }}" class="btn btn-secondary btn-sm ms-2">
+    Back to inbox
+  </a>
+</form>
+<br><br>
+{% if is_blocked %}
+<form method="post"
+      action="{{ url_for('main.unblock_user', user_id=other_user.id) }}"
+      class="d-inline mt-4">
+  <button type="submit"
+          class="btn btn-outline-warning btn-sm"
+          onclick="return confirm('Unblock this user so they can message you again?');">
+    Unblock {{ other_user.username }}
+  </button>
+</form>
+{% else %}
+<form method="post"
+      action="{{ url_for('main.block_user', user_id=other_user.id) }}"
+      class="d-inline mt-4">
+  <button type="submit"
+          class="btn btn-outline-danger btn-sm"
+          onclick="return confirm('Block this user from sending you messages?');">
+    Block {{ other_user.username }}
+  </button>
+</form>
+{% endif %}
+{% endblock %}

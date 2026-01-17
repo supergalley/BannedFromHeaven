@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Edit reply - jokes.supergalley.com{% endblock %}
+
+{% block content %}
+<h2>Edit reply</h2>
+
+<div class="joke-card mt-3">
+  <p class="small text-muted mb-2">
+    Editing your reply in thread:
+    "{{ reply.thread.title }}"
+  </p>
+
+  <form method="post">
+    <div class="mb-3">
+      <label for="body" class="form-label">Reply text</label>
+      <textarea id="body"
+                name="body"
+                class="form-control"
+                rows="6">{{ reply.body }}</textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-sm">
+      Save changes
+    </button>
+
+    <a href="/forum/thread/{{ reply.thread_id }}"
+       class="btn btn-secondary btn-sm ms-2">
+      Cancel
+    </a>
+  </form>
+</div>
+{% endblock %}

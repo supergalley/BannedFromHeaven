@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% block title %}
+  {% if mode == 'memes' %}BannedFromHeaven.com - Memes{% else %}BannedFromHeaven.com - Jokes{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+  <div class="text-end small text-muted mb-2">
+    PV {{ page_views }}
+  </div>
+  <div class="btn-group" role="group">
+    <a href="{{ url_for('main.index', range=time_range) }}"
+       class="btn btn-sm {% if mode == 'jokes' %}btn-primary{% else %}btn-outline-light{% endif %}">
+      Jokes
+    </a>
+
+    <a href="{{ url_for('main.memes', range=time_range) }}"
+       class="btn btn-sm {% if mode == 'memes' %}btn-primary{% else %}btn-outline-light{% endif %}">
+      Memes
+    </a>
+
+    <a href="{{ url_for('main.clips', range=time_range) }}"
+       class="btn btn-sm {% if mode == 'clips' %}btn-primary{% else %}btn-outline-light{% endif %}">
+      Clips
+    </a>
+  </div>
+  <form method="get" class="d-flex">
+    <select name="range" class="form-select form-select-sm me-2" data-sticky-range="feed_range"> <!--onchange="this.form.submit()"> -->
+      <option value="today" {% if time_range == 'today' %}selected{% endif %}>Last 24h</option>
+      <option value="week"  {% if time_range == 'week' %}selected{% endif %}>This week</option>
+      <option value="month" {% if time_range == 'month' %}selected{% endif %}>This month</option>
+      <option value="all"   {% if time_range == 'all' %}selected{% endif %}>All time</option>
+    </select>
+  </form>
+</div>
+
+{% if settings and settings.pinned_enabled %}
+  <div class="joke-card" style="border:1px solid #9f7bff;">
+    <h3>{{ settings.pinned_title }}</h3>
+    <div style="white-space:pre-wrap; font-size: 0.9rem;">{{ settings.pinned_body|safe }}</div>
+  </div>
+{% endif %}
+
+{% if jokes %}
+  {% for joke in jokes %}
+    <div class="joke-card d-flex">
+      <div class="me-3 text-center vote-column">
+        {% if current_user.is_authenticated %}
+          <div
+            class="vote-btn {% if vote_map is defined and vote_map.get(joke.id) == 1 %}voted-up{% endif %}"
+            data-id="{{ joke.id }}"
+            data-dir="up">
+            ⬆
+          </div>
+        {% else %}
+          <div>⬆</div>
+        {% endif %}
+        <div id="score-{{ joke.id }}">{{ joke.score }}</div>
+        {% if current_user.is_authenticated %}
+          <div
+            class="vote-btn {% if vote_map is defined and vote_map.get(joke.id) == -1 %}voted-down{% endif %}"
+            data-id="{{ joke.id }}"
+            data-dir="down">
+            ⬇
+          </div>
+        {% else %}
+          <div>⬇</div>
+        {% endif %}
+      </div>
+
+      <div class="flex-grow-1">
+        {% if joke.is_meme and joke.image_filename %}
+          <img src="{{ UPLOADS_URL }}/{{ joke.image_filename|urlencode }}"
+               class="img-fluid mb-2 meme-img">
+        {% endif %}
+
+        {% if joke.is_clip and joke.video_filename %}
+          <div class="mb-2 clip-shell position-relative"
+              data-video="{{ CLIPS_URL }}/{{ joke.video_filename|urlencode }}"
+              {% if joke.video_thumb %}data-poster="{{ THUMBS_URL }}/{{ joke.video_thumb|urlencode }}"{% endif %}>
+            {% if joke.video_thumb %}
+              <img src="{{ THUMBS_URL }}/{{ joke.video_thumb|urlencode }}"
+                class="img-fluid"
+                alt="Video thumbnail"
+                style="width:100%; max-height:420px; object-fit:contain; border-radius:6px;">
+            {% else %}
+              <div class="bg-dark text-muted p-3" style="border-radius:6px;">Video clip (tap to load)</div>
+            {% endif %}
+
+            <button type="button"
+              class="btn btn-warning clip-load-btn position-absolute top-50 start-50 translate-middle"
+              style="border-radius:999px; width:60px; height:60px; font-size:20px; line-height:1;">
+              ▶
+            </button>
+          </div>
+        {% endif %}
+
+
+        {% if joke.body %}
+          <p class="mt-1 mb-1" style="white-space:pre-wrap;">{{ joke.body.lstrip() }}</p>
+        {% endif %}
+        {% if joke.category %}
+          <a href="{{ url_for('main.memes' if mode == 'memes' else 'main.index') }}?category={{ joke.category.name }}" style="
+            display:inline-block;
+            background:#9f7bff33;
+            color:#9f7bff;
+            padding:3px 10px;
+            margin-top:5px;
+            border:1px solid #9f7bff;
+            border-radius:6px;
+            font-size:0.8rem;
+          ">
+            {{ joke.category.name }}
+          </a>
+        {% endif %}
+        <p class="mt-2 mb-0 small" style="color:#bfbfbf;">
+          <a href="{{ url_for('main.joke_detail', joke_id=joke.id) }}"
+             style="color:#bfbfbf; text-decoration: underline;">
+            {{ joke.comment_count }} comment{% if joke.comment_count != 1 %}s{% endif %}
+          </a>
+        </p>
+        {% if current_user.is_authenticated
+              and (current_user.is_admin or current_user.is_moderator)
+              and not joke.is_quarantined %}
+          <form method="post"
+                action="{{ url_for('main.quarantine_joke', joke_id=joke.id) }}"
+                class="d-inline">
+            <button type="submit"
+                    class="btn btn-sm btn-outline-warning mt-1"
+                    style="font-size: 0.75rem; padding: 2px 8px;"
+                    onclick="return confirm(
+                      'Send this joke to quarantine for admin review? It will disappear from public lists.'
+                    );">
+              Quarantine
+            </button>
+          </form>
+        {% endif %}
+        <small style="color:#bfbfbf; font-size:0.85rem;">
+          <a href="{{ url_for('main.user_profile', username=joke.author.username) }}">
+            {{ joke.author.username }}
+          </a>
+
+          {% set medals = user_medals.get(joke.author.id) %}
+          {% if medals %}
+            {% if medals.today %}
+              <span class="medal-badge-today"
+                    title="{{ medals.today.tooltip }}"
+                    aria-label="{{ medals.today.tooltip }}">
+                {{ medals.today.icon }}
+              </span>
+            {% endif %}
+            {% if medals.week %}
+              <span class="medal-badge-week"
+                    title="{{ medals.week.tooltip }}"
+                    aria-label="{{ medals.week.tooltip }}">
+                {{ medals.week.icon }}
+              </span>
+            {% endif %}
+            {% if medals.all_time %}
+              <span class="medal-badge-alltime"
+                    title="{{ medals.all_time.tooltip }}"
+                    aria-label="{{ medals.all_time.tooltip }}">
+                {{ medals.all_time.icon }}
+              </span>
+            {% endif %}
+          {% endif %}
+
+          ({{ joke.author.reputation or 0 }})
+          · <a x-content-detected="none">{{ joke.created_at.strftime('%d-%m-%Y %H%M') }}</a>
+        </small>
+      </div>
+    </div>
+  {% endfor %}
+{% else %}
+  <p>
+    {% if mode == 'memes' %}
+      No memes in this time range. Tragic.
+    {% else %}
+      No jokes in this time range. Tragic.
+    {% endif %}
+  </p>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateVoteGlow(jokeId, direction) {
+  const upBtn = document.querySelector(`.vote-btn[data-id="${jokeId}"][data-dir="up"]`);
+  const downBtn = document.querySelector(`.vote-btn[data-id="${jokeId}"][data-dir="down"]`);
+
+  if (!upBtn || !downBtn) return;
+
+  const upActive = upBtn.classList.contains('voted-up');
+  const downActive = downBtn.classList.contains('voted-down');
+
+  let newUp = upActive;
+  let newDown = downActive;
+
+  if (direction === 'up') {
+    if (upActive) {
+      // UPVOTE TRUE, Tap Up → clear both
+      newUp = false;
+      newDown = false;
+    } else {
+      // UPVOTE FALSE (neutral or down), Tap Up → Up = TRUE, Down = FALSE
+      newUp = true;
+      newDown = false;
+    }
+  } else if (direction === 'down') {
+    if (downActive) {
+      // DOWNVOTE TRUE, Tap Down → clear both
+      newUp = false;
+      newDown = false;
+    } else {
+      // DOWNVOTE FALSE (neutral or up), Tap Down → Down = TRUE, Up = FALSE
+      newUp = false;
+      newDown = true;
+    }
+  }
+
+  upBtn.classList.toggle('voted-up', newUp);
+  downBtn.classList.toggle('voted-down', newDown);
+}
+
+document.querySelectorAll('.vote-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id = btn.dataset.id;
+    const direction = btn.dataset.dir;
+
+    fetch(`/api/jokes/${id}/vote`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({direction})
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.score !== undefined) {
+        const scoreEl = document.getElementById(`score-${id}`);
+        if (scoreEl) {
+          scoreEl.innerText = data.score;
+        }
+      }
+
+      // Ignore what the server *thinks* and update UI based on click + current classes
+      updateVoteGlow(id, direction);
+    })
+    .catch(err => console.error(err));
+  });
+});
+
+// Click-to-load clips: no <video src> on initial page load (saves your server from death by scrolling).
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.clip-load-btn');
+  if (!btn) return;
+
+  const shell = btn.closest('.clip-shell');
+  if (!shell || shell.dataset.loaded === '1') return;
+
+  const src = shell.dataset.video;
+  const poster = shell.dataset.poster || '';
+
+  if (!src) return;
+
+  const video = document.createElement('video');
+  video.controls = true;
+  video.preload = 'none'; // fetch only once user asked for it
+  video.playsInLine = true;
+  video.style.width = '100%';
+  video.style.maxHeight = '420px';
+  if (poster) video.poster = poster;
+
+  const source = document.createElement('source');
+  source.src = src;
+  source.type = 'video/mp4';
+  video.appendChild(source);
+
+  shell.innerHTML = '';
+  shell.appendChild(video);
+  shell.dataset.loaded = '1';
+
+  // Try autoplay after click; if the browser blocks it, user can hit play.
+  video.play().catch(() => {});
+});
+
+</script>
+{% endblock %}

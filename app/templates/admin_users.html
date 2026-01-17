@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Admin – Users{% endblock %}
+
+{% block content %}
+<h2>Users</h2>
+<table class="table table-dark table-sm">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Username</th>
+      <th>Email</th>
+      <th>Admin</th>
+      <th>Mod</th>
+      <th>Ban until</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+
+  <tbody>
+  {% for u in users %}
+    <tr>
+      <td>{{ u.id }}</td>
+      <td>
+        {{ u.username }}
+        {% set medals = user_medals.get(u.id) %}
+        {% if medals %}
+          {% if medals.today %}
+            <span class="medal-badge-today"
+                  title="{{ medals.today.tooltip }}"
+                  aria-label="{{ medals.today.tooltip }}">
+              {{ medals.today.icon }}
+            </span>
+          {% endif %}
+          {% if medals.week %}
+            <span class="medal-badge-week"
+                  title="{{ medals.week.tooltip }}"
+                  aria-label="{{ medals.week.tooltip }}">
+              {{ medals.week.icon }}
+            </span>
+          {% endif %}
+          {% if medals.all_time %}
+            <span class="medal-badge-alltime"
+                  title="{{ medals.all_time.tooltip }}"
+                  aria-label="{{ medals.all_time.tooltip }}">
+              {{ medals.all_time.icon }}
+            </span>
+          {% endif %}
+        {% endif %}
+      </td>
+      <td>{{ u.email }}</td>
+      <td>{{ 'Yes' if u.is_admin else 'No' }}</td>
+      <td>{{ 'Yes' if u.is_moderator else 'No' }}</td>
+      <td>{{ u.ban_until or '' }}</td>
+
+      <td>
+        <a href="{{ url_for('admin.edit_user', user_id=u.id) }}" class="btn btn-sm btn-outline-light">Edit</a>
+        <form method="post" action="{{ url_for('admin.delete_user', user_id=u.id) }}" style="display:inline;" onsubmit="return confirm('Delete this user and ALL their jokes, comments, votes and forum posts?');">
+          <button type="submit" class="btn btn-sm btn-danger ms-1">Delete</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
