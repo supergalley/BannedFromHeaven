@@ -70,28 +70,43 @@ def notify_duplicate_removal(
 
     kept = Joke.query.get(kept_joke_id) if kept_joke_id else None
     original_date = _fmt_joke_date(kept.created_at if kept else None)
-    original_text = (
-        ((kept.body or "").strip() if kept else "")
-        or "[no text / media post / original unavailable]"
-    )
-    if len(original_text) > 1200:
-        original_text = original_text[:1200] + "…"
+    
+    upload_domain = (os.environ.get("MEDIA_BASE") or "https://media.bannedfromheaven.com/uploads").rstrip("/")
+    
+    lines = ["Hi. Your joke has been identified as a duplicate.\n"]
+    
+    # Original post details
+    lines.append(f"Original post (dated: {original_date}):")
+    if kept:
+        if kept.is_meme and kept.image_filename:
+            import urllib.parse
+            lines.append(f"{upload_domain}/{urllib.parse.quote(kept.image_filename)}")
+        if (kept.body or "").strip():
+            body_preview = (kept.body or "").strip()
+            if len(body_preview) > 600:
+                body_preview = body_preview[:600] + "…"
+            lines.append(body_preview)
+    else:
+        lines.append("[original post unavailable]")
+    lines.append("")
 
+    # Removed post details
     dupe_date = _fmt_joke_date(archived.created_at)
-    dupe_text = (archived.body or "").strip() or "[meme/clip / empty body]"
-    if len(dupe_text) > 1200:
-        dupe_text = dupe_text[:1200] + "…"
+    lines.append(f"Your removed post (dated: {dupe_date}):")
+    if archived.is_meme and archived.image_filename:
+        import urllib.parse
+        lines.append(f"{upload_domain}/{urllib.parse.quote(archived.image_filename)}")
+    if (archived.body or "").strip():
+        dupe_body = (archived.body or "").strip()
+        if len(dupe_body) > 600:
+            dupe_body = dupe_body[:600] + "…"
+        lines.append(dupe_body)
+    lines.append("")
 
-    # Inbox UI uses white-space:pre-wrap — use newlines, not HTML <br>
-    body = (
-        "Hi. Your joke has been identified as a duplicate.\n\n"
-        f"Original Joke dated: {original_date}\n"
-        f"{original_text}\n\n"
-        f"Your joke dated: {dupe_date}\n"
-        f"{dupe_text}\n\n"
-        "Please reply to this message if you think this was a mistake.\n\n"
-        "Satan"
-    )
+    lines.append(f"If you think this removal was a mistake, you can submit an appeal here:\nhttps://bannedfromheaven.com/appeals/duplicate/{archived.id}\n")
+    lines.append("You can also reply directly to this message.\n\nSatan")
+
+    body = "\n".join(lines)
 
     # Prefer real admin account so replies go to supergalley
     sender = User.query.filter_by(username="supergalley").first()

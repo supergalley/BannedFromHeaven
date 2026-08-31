@@ -39,7 +39,14 @@
     <div class="card bg-dark border-secondary">
       <div class="card-header">Your removed post (was #{{ archived.original_joke_id }})</div>
       <div class="card-body">
-        <pre class="small bg-black p-2" style="white-space:pre-wrap;">{{ archived.body }}</pre>
+        {% if archived.is_meme and archived.image_filename %}
+          <div class="mb-2 text-center">
+            <img src="{{ UPLOADS_URL }}/{{ archived.image_filename }}" alt="Your meme" class="img-fluid rounded border border-secondary" style="max-height: 280px;">
+          </div>
+        {% endif %}
+        {% if archived.body %}
+          <pre class="small bg-black p-2" style="white-space:pre-wrap;">{{ archived.body }}</pre>
+        {% endif %}
         <div class="small text-muted">
           Score at removal: {{ archived.score }}
           · {{ archived.created_at.strftime('%Y-%m-%d') if archived.created_at else '' }}
@@ -52,7 +59,16 @@
       <div class="card-header">Kept as original (#{{ archived.related_kept_joke_id or '?' }})</div>
       <div class="card-body">
         {% if kept %}
-          <pre class="small bg-black p-2" style="white-space:pre-wrap;">{{ kept.body }}</pre>
+          {% if kept.is_meme and kept.image_filename %}
+            <div class="mb-2 text-center">
+              <a href="{{ url_for('main.joke_detail', joke_id=kept.id) }}" target="_blank" rel="noopener">
+                <img src="{{ UPLOADS_URL }}/{{ kept.image_filename }}" alt="Original meme" class="img-fluid rounded border border-secondary" style="max-height: 280px;">
+              </a>
+            </div>
+          {% endif %}
+          {% if kept.body %}
+            <pre class="small bg-black p-2" style="white-space:pre-wrap;">{{ kept.body }}</pre>
+          {% endif %}
           <div class="small text-muted">
             by {{ kept.author.username if kept.author else '?' }}
             · score {{ kept.score }}

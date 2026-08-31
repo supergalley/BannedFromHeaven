@@ -106,7 +106,7 @@
               {% if m.subject %}<span class="ms-2">{{ m.subject }}</span>{% endif %}
             </div>
           </div>
-          <p class="mt-2" style="white-space:pre-wrap;">{{ m.body }}</p>
+          <div class="mt-2 message-body-content" style="white-space:pre-wrap;">{{ m.body }}</div>
           <p class="mb-0">
             <small style="color: #00eaff;">
               Sent {{ m.created_at.strftime('%H%M %d%m%Y') }}
@@ -147,4 +147,21 @@
   </button>
 </form>
 {% endif %}
+
+<script>
+document.querySelectorAll('.message-body-content').forEach(function(el) {
+  var text = el.innerHTML;
+  // Convert image URLs to embedded previews
+  var imgRegex = /(https?:\/\/[^\s]+\.(?:jpg|jpeg|png|webp|gif))/gi;
+  text = text.replace(imgRegex, function(url) {
+    return '<div class="my-2"><a href="' + url + '" target="_blank" rel="noopener"><img src="' + url + '" class="img-fluid rounded border border-secondary" style="max-height: 240px;"></a></div>';
+  });
+  // Convert appeal URLs to buttons
+  var appealRegex = /(https?:\/\/[^\s]+\/appeals\/duplicate\/\d+)/gi;
+  text = text.replace(appealRegex, function(url) {
+    return '<div class="my-2"><a href="' + url + '" class="btn btn-sm btn-outline-warning">Open Duplicate Appeal Form</a></div>';
+  });
+  el.innerHTML = text;
+});
+</script>
 {% endblock %}
