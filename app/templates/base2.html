@@ -1,0 +1,1161 @@
+<!doctype html>
+<html lang="en">
+<head>
+    {# ---- SEO defaults ---- #}
+    {% if canonical_url %}
+      <link rel="canonical" href="{{ canonical_url }}">
+    {% endif %}
+    {% if noindex %}
+      <meta name="robots" content="noindex, follow">
+    {% endif %}
+    <meta charset="utf-8">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#121212">
+    <meta name="format-detection" content="date=no">
+    <meta name="format-detection" content="address=no">
+    <meta name="format-detection" content="email=no">
+    <title x-content-detected="none">{% block title %}BannedFromHeaven.com - Sickipedia Style Jokes{% endblock %} </title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Sickipedia style jokes, dark humour and offensive comedy.">
+    <meta name="format-detection" content="telephone=no">
+    <meta property="og:site_name" content="Banned From Heaven">
+    <meta property="og:url" content="{{ request.url_root }}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Banned From Heaven">
+    <meta property="og:description" content="Dark jokes, memes and clips.">
+    <!-- Quick-and-dirty Bootstrap CDN, replace later if you care -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet">
+<style>
+  a {
+    color: #9f7bff;
+  }
+  a:hover {
+    color: #b89cff;
+  }
+  body {
+    background-color: #121212;
+    color: #e6e6e6;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    color: #e6e6e6;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: #a0a0a0;
+  }
+  label,
+  .form-label {
+    color: #e0e0e0;
+  }
+  small,
+  .form-text {
+    color: #c8c8c8;
+  }
+  .admin-link-highlight {
+    border: 2px solid yellow;
+    border-radius: 999px;
+    padding: 2px 10px;
+  }
+  .bfh-messages-btn {
+    grid-column: span 2;
+  }
+  .bfh-nav {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 10px 0 18px;
+  }
+  .bfh-nav-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .bfh-nav-btn {
+    align-items: center;
+    background: #181818;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: #eee;
+    display: inline-flex;
+    font-size: 0.95rem;
+    justify-content: center;
+    line-height: 1.1;
+    min-height: 38px;
+    padding: 7px 12px;
+    text-decoration: none;
+  }
+  .bfh-nav-btn:active,
+  .bfh-nav-btn:focus,
+  .bfh-nav-btn:hover {
+    background: #222;
+    border-color: #777;
+    color: #fff;
+  }
+  .bfh-nav-inner {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .bfh-submit-btn {
+    background: #0d6efd;
+    color: #fff;
+  }
+  .bfh-submit-btn:active,
+  .bfh-submit-btn:focus,
+  .bfh-submit-btn:hover {
+    background: #0b5ed7;
+    border-color: #6ea8fe;
+  }
+  /*
+  #bfh-flying-demon {
+    animation: bfh-demon-flap 0.65s steps(8) infinite;
+    background-image: url("{{ url_for('static', filename='bfh_demon_flap_sheet.png') }}");
+    background-size: 1024px 160px;
+    filter: drop-shadow(0 0 10px #ff0000);
+    height: 160px;
+    opacity: 0.95;
+    pointer-events: none;
+    position: fixed;
+    width: 128px;
+    z-index: 9999;
+  }
+  @keyframes bfh-demon-flap {
+    from { background-position: 0 0; }
+    to { background-position: -1024px 0; }
+  }
+  */
+  .btn-outline-light {
+    border-color: #777;
+    color: #f0f0f0;
+  }
+  .btn-outline-light:hover {
+    background-color: #2a2a2a;
+    border-color: #aaa;
+  }
+  .container.main-content-layer {
+    z-index: 1;
+  }
+  /* Back-to-top: fixed control + in-flow footer control on long pages */
+  #bfh-back-to-top {
+    align-items: center;
+    background: #1e1e1e;
+    border: 1px solid #777;
+    border-radius: 999px;
+    bottom: 1.1rem;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 1.35rem;
+    height: 3rem;
+    justify-content: center;
+    line-height: 1;
+    opacity: 0;
+    padding: 0;
+    pointer-events: none;
+    position: fixed;
+    right: 1.1rem;
+    transition: opacity 0.2s ease, background 0.15s ease, border-color 0.15s ease;
+    width: 3rem;
+    z-index: 1100;
+  }
+  #bfh-back-to-top.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #bfh-back-to-top:hover,
+  #bfh-back-to-top:focus {
+    background: #2a2a2a;
+    border-color: #aaa;
+    color: #fff;
+    outline: none;
+  }
+  .bfh-back-to-top-footer {
+    margin: 2rem 0 1rem;
+    text-align: center;
+  }
+  .bfh-back-to-top-footer .btn {
+    font-size: 1.25rem;
+    min-width: 3.5rem;
+  }
+  .glow-green {
+    border: 1px solid rgba(0, 255, 100, 0.7);
+    box-shadow: 0 0 10px rgba(0, 255, 100, 0.8);
+  }
+  .joke-card {
+    background-color: #1e1e1e;
+    border-radius: 8px;
+    color: #e6e6e6;
+    margin-bottom: 1rem;
+    padding: 1rem 1.25rem;
+  }
+  .joke-card small {
+    color: #bfbfbf;
+  }
+  .medal-badge-alltime {
+    display: inline-block;
+    font-size: 1.5rem;
+    line-height: 1;
+    margin-left: 0.15rem;
+    vertical-align: middle;
+  }
+  .medal-badge-today {
+    display: inline-block;
+    font-size: 1.1rem;
+    line-height: 1;
+    margin-left: 0.25rem;
+    vertical-align: middle;
+  }
+  .medal-badge-week {
+    display: inline-block;
+    font-size: 1.3rem;
+    line-height: 1;
+    margin-left: 0.15rem;
+    vertical-align: middle;
+  }
+  .meme-img {
+    display: block;
+    margin: 0 auto;
+    max-height: 520px;
+    max-width: 720px;
+    object-fit: contain;
+    width: 100%;
+  }
+  .moderator-badge {
+    animation: modPulse 3.8s ease-in-out infinite;
+    color: #ff4444;
+    font-weight: bold;
+    margin-left: 1rem;
+  }
+  .moderator-review-glow {
+    border-radius: 8px;
+    box-shadow: 0 0 10px #ff4fc3, 0 0 18px #ff4fc3;
+    color: #ffb3e6 !important;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    text-shadow: 0 0 8px #ff4fc3, 0 0 16px #ff4fc3;
+  }
+  .navbar,
+  .navbar a,
+  .nav-link {
+    color: #e6e6e6;
+  }
+  .navbar.main-content-layer {
+    z-index: 2147483000;
+  }
+  .nav-link:hover {
+    color: #ffffff;
+  }
+  .quoted-comment-box {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid #777;
+    border-radius: 6px;
+    color: #ddd;
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem;
+  }
+  .reaction-main-emoji {
+    font-size: 1.1rem;
+    margin-right: 0.25rem;
+    transition: transform 0.1s ease-out;
+  }
+  .reaction-main-empty {
+    color: #888888;
+  }
+  .reaction-picker {
+    background: #222;
+    border-radius: 999px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
+    display: none;
+    padding: 4px 8px;
+    position: absolute;
+    z-index: 2000;
+  }
+  .reaction-picker button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.4rem;
+    margin: 0 2px;
+    padding: 4px;
+  }
+  .reaction-picker button:hover {
+    transform: scale(1.2);
+  }
+  .reaction-summary {
+    min-width: 0;
+  }
+  .reaction-summary-count {
+    color: #cccccc;
+    font-size: 0.8rem;
+  }
+  .reaction-summary-emoji {
+    font-size: 1rem;
+    margin-right: 0.1rem;
+  }
+  .reaction-trigger {
+    align-items: center;
+    color: #9f7bff;
+    display: inline-flex;
+    text-decoration: none;
+  }
+  .reaction-trigger:hover .reaction-main-emoji {
+    transform: scale(1.2);
+  }
+  .reaction-users-list {
+    font-size: 0.8rem;
+    line-height: 1.3;
+  }
+  .reaction-users-title {
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .reaction-users-tooltip {
+    background: #222;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
+    color: #f0f0f0;
+    display: none;
+    font-size: 0.8rem;
+    max-width: 260px;
+    padding: 6px 8px;
+    position: absolute;
+    white-space: normal;
+    z-index: 2100;
+  }
+  .text-muted {
+    color: #b5b5b5 !important;
+  }
+  .user-menu-btn span:last-child {
+    background: #181818;
+    color: #eee;
+    font-size: 1.25rem;
+    line-height: 1; 
+  }
+  .user-menu-btn.menu-open {
+    background: #222;
+    border-color: #777;
+    color: #fff;
+  }
+  .user-menu-wrap {
+    position: relative;
+  }
+  .user-modified-range {
+    border-color: #00ff00;
+    box-shadow:
+      0 0 0.4rem rgba(0, 255, 0, 0.6),
+      0 0 0.8rem rgba(0, 255, 0, 0.4);
+  }
+  .vote-btn {
+    align-items: center;
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 2rem; /* ~2× previous text size for phone tap targets */
+    justify-content: center;
+    line-height: 1;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    padding: 0.35rem 0.4rem;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .vote-btn.voted-down {
+    border: 1px solid #ff0000;
+    border-radius: 6px;
+    box-shadow: 0 0 8px rgba(255, 0, 0, 0.8);
+  }
+  .vote-btn.voted-up {
+    border: 1px solid #00ff00;
+    border-radius: 6px;
+    box-shadow: 0 0 8px rgba(0, 255, 0, 0.8);
+  }
+  .vote-column {
+    flex-shrink: 0;
+    min-width: 3.5rem;
+    width: 3.5rem;
+  }
+  /* Feed toolbar: mode | sort | range — single row, shrinks on narrow viewports */
+  .feed-toolbar {
+    align-items: center;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: clamp(0.25rem, 1.2vw, 0.6rem);
+    min-width: 0;
+    width: 100%;
+  }
+  .feed-toolbar-pv {
+    color: #a0a0a0;
+    flex: 0 0 auto;
+    font-size: clamp(0.6rem, 1.5vw, 0.8rem);
+    white-space: nowrap;
+  }
+  .feed-toolbar-sep {
+    color: #666;
+    flex: 0 0 auto;
+    font-size: clamp(0.7rem, 1.6vw, 0.95rem);
+    line-height: 1;
+    user-select: none;
+  }
+  .feed-mode-group,
+  .feed-sort-group {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  .feed-controls-form {
+    align-items: center;
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    gap: clamp(0.25rem, 1.2vw, 0.6rem);
+    min-width: 0;
+  }
+  .feed-toolbar-btn {
+    font-size: clamp(0.62rem, 1.7vw, 0.875rem) !important;
+    line-height: 1.15;
+    padding: clamp(0.18rem, 0.55vw, 0.35rem) clamp(0.28rem, 0.85vw, 0.65rem) !important;
+    white-space: nowrap;
+  }
+  .feed-mode-label {
+    font-weight: 700;
+  }
+  .feed-mode-count {
+    font-style: italic;
+    font-weight: 400;
+    margin-left: 0.28em;
+    opacity: 0.92;
+  }
+  .feed-range-select {
+    background-color: #181818;
+    border-color: #777;
+    color: #f0f0f0;
+    flex: 0 1 auto;
+    font-size: clamp(0.62rem, 1.7vw, 0.875rem);
+    max-width: 100%;
+    min-width: 0;
+    padding: clamp(0.18rem, 0.55vw, 0.35rem) clamp(0.3rem, 0.8vw, 0.5rem);
+    width: auto;
+  }
+  .feed-range-select:focus {
+    background-color: #181818;
+    border-color: #aaa;
+    box-shadow: none;
+    color: #fff;
+  }
+  /* Quarantine reason popup */
+  .bfh-q-overlay {
+    align-items: center;
+    background: rgba(0, 0, 0, 0.65);
+    bottom: 0;
+    display: none;
+    justify-content: center;
+    left: 0;
+    padding: 1rem;
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 2000;
+  }
+  .bfh-q-overlay.is-open {
+    display: flex;
+  }
+  .bfh-q-dialog {
+    background: #1e1e1e;
+    border: 1px solid #9f7bff;
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+    color: #e6e6e6;
+    max-width: 420px;
+    padding: 1.1rem 1.25rem;
+    width: 100%;
+  }
+  .bfh-q-dialog h5 {
+    color: #ffc107;
+    margin: 0 0 0.75rem;
+  }
+  .bfh-q-reasons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+  }
+  .bfh-q-reasons label {
+    cursor: pointer;
+    font-size: 0.95rem;
+  }
+  .bfh-q-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+  {% if show_christmas_snow %}
+  .main-content-layer {
+    position: relative;
+    z-index: 1;
+  }
+  .medal-badge-big {
+    font-size: 1.4rem;
+    margin-left: 0.35rem;
+    vertical-align: middle;
+  }
+  .medal-badge-small {
+    font-size: 1.1rem;
+    margin-left: 0.2rem;
+    vertical-align: baseline;
+  }
+  .snow-layer {
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    position: fixed;
+    z-index: 0;
+  }
+  .snowflake {
+    animation-iteration-count: infinite;
+    animation-name: snow-fall;
+    animation-timing-function: linear;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.6rem;
+    position: absolute;
+    top: -10px;
+    user-select: none;
+  }
+  {% else %}
+  .main-content-layer {
+    position: relative;
+    z-index: 1;
+  }
+  {% endif %}
+  @keyframes modPulse {
+    0% { opacity: 0.2; }
+    50% { opacity: 1; }
+    100% { opacity: 0.2; }
+  }
+  @keyframes snow-fall {
+    0% {
+      transform: translate3d(0, -10px, 0);
+    }
+    100% {
+      transform: translate3d(var(--snow-drift, 0px), 110vh, 0);
+    }
+  }
+@media (max-width: 700px) {
+  .navbar .container-fluid {
+    display: block;
+  }
+  .bfh-nav-inner {
+    display: grid;
+    gap: 0.4rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+  .bfh-nav-actions {
+    display: grid;
+    gap: 0.4rem;
+    grid-template-columns: 1fr 1fr 1fr;
+    width: 100%;
+  }
+  .bfh-nav-btn,
+  .user-menu-btn {
+    width: 100%;
+  }
+  .bfh-nav-row2 {
+    grid-column: span 1;
+  }
+  .bfh-submit-btn {
+    grid-column: 1 / -1;
+  }
+  .bfh-messages-btn {
+    grid-column: span 2;
+  }
+  .moderator-badge {
+    animation: modPulse 3.8s ease-in-out infinite;
+    margin-left: 0;
+    text-align: center;
+  }
+}
+</style>
+
+    {% if show_newyear_effects %}
+      <link rel="stylesheet" href="{{ url_for('static', filename='newyear.css') }}">
+    {% endif %}
+    {% block head %}{% endblock %}
+</head>
+<body>
+{% if show_christmas_snow %}
+  <div id="snow-layer" class="snow-layer"></div>
+{% endif %}
+<div style="text-align:center;">
+  <img style="width:100%; height:auto; max-width:1100px;" src="/static/site-logo.png">
+</div>
+<div>
+  <nav class="navbar navbar-dark main-content-layer" style="background-color:#181818;">
+    <div class="container-fluid">
+      <div class="bfh-nav-inner">
+        <a class="bfh-nav-btn" href="{{ url_for('main.index') }}" x-content-detected="none">🏠</a>
+        <a class="bfh-nav-btn" href="{{ url_for('main.search') }}" x-content-detected="none">🔍👀</a>
+        <a class="bfh-nav-btn {% if forum_has_unread %}glow-green{% endif %}" href="{{ url_for('forum.index') }}" x-content-detected="none">Forum 📰</a>
+        <a class="bfh-nav-btn bfh-nav-row2" href="{{ url_for('main.wankerboard') }}">SinnerBoard©</a>
+        {% if current_user.is_authenticated and current_user.is_admin %}
+          <a class="bfh-nav-btn bfh-nav-row2 {% if admin_unread_notifications %}admin-link-highlight{% endif %}"
+            href="{{ url_for('admin.dashboard') }}"
+            x-content-detected="none">😈</a>
+        {% endif %}
+        {% if current_user.is_authenticated and (current_user.is_admin or current_user.is_moderator) %}
+          <a class="bfh-nav-btn bfh-nav-row2 moderator-badge {% if pending_review_count and pending_review_count > 0 %}moderator-review-glow{% endif %}"
+            href="{{ url_for('main.moderation_review') }}"
+            x-content-detected="none">
+            Moderator{% if pending_review_count and pending_review_count > 0 %} ({{ pending_review_count }}){% endif %}
+          </a>
+        {% endif %}
+      </div>
+      <div class="bfh-nav-actions">
+        {% if show_christmas_snow %}
+        <div class="form-check form-switch text-light me-3">
+          <input class="form-check-input" type="checkbox" id="snowToggle" checked>
+          <label class="form-check-label small" for="snowToggle">Snow</label>
+        </div>
+        {% endif %}
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('main.inbox') }}"
+            class="bfh-nav-btn bfh-messages-btn {% if unread_message_count and unread_message_count > 0 %}btn-danger{% endif %}">
+            Messages
+            {% if unread_message_count and unread_message_count > 0 %}
+              ({{ unread_message_count }})
+            {% endif %}
+          </a>
+          <div class="user-menu-wrap">
+            <button type="button" class="bfh-nav-btn user-menu-btn" id="user-menu-toggle">
+              <div class="d-flex flex-column lh-1 text-start">
+                <span class="small">{{ current_user.username }}</span>
+                <span>☰</span>
+              </div>
+            </button>
+            <div class="user-menu-popout d-none" id="user-menu-popout">
+              <a href="{{ url_for('main.change_password') }}" class="btn btn-sm btn-outline-light w-100 mb-2">
+                Change Password
+              </a>
+              <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-danger w-100">
+                👋 Logout 👋
+              </a>
+            </div>
+          </div>
+          <a href="{{ url_for('main.submit_joke') }}" class="bfh-nav-btn bfh-submit-btn">
+            Submit joke
+          </a>
+          </div>
+          <div class="user-menu-popout d-none" id="user-menu-popout">
+            <a href="{{ url_for('main.change_password') }}" class="btn btn-sm btn-outline-light w-100 mb-2">
+              Change Password
+            </a>
+            <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-danger w-100">
+              👋 Logout 👋
+            </a>
+          </div>
+        </div>
+        {% else %}
+        <a href="{{ url_for('auth.login') }}"
+           class="btn btn-sm btn-outline-light bfh-nav-btn">
+          Login
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+</div>
+<div class="container mt-3 main-content-layer">
+  {% with messages = get_flashed_messages(with_categories=True) %}
+    {% if messages %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }} alert-sm py-1 my-1">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+
+  <div class="bfh-back-to-top-footer">
+    <button type="button"
+            class="btn btn-outline-light bfh-to-top-btn"
+            title="Back to top"
+            aria-label="Back to top of page">
+      🔝
+    </button>
+  </div>
+</div>
+
+<button type="button"
+        id="bfh-back-to-top"
+        class="bfh-to-top-btn"
+        title="Back to top"
+        aria-label="Back to top of page">
+  🔝
+</button>
+
+{% if current_user.is_authenticated and (current_user.is_admin or current_user.is_moderator) %}
+<div id="quarantineReasonModal" class="bfh-q-overlay" aria-hidden="true" role="dialog" aria-labelledby="bfh-q-title">
+  <div class="bfh-q-dialog">
+    <h5 id="bfh-q-title">Quarantine reason</h5>
+    <p class="small text-muted mb-2">Pick at least one reason, then confirm. The joke will leave public lists.</p>
+    <form id="quarantineReasonForm" method="post" action="#">
+      <div class="bfh-q-reasons">
+        {% for reason in QUARANTINE_REASONS %}
+        <label>
+          <input type="checkbox" name="reasons" value="{{ reason }}">
+          {{ reason }}
+        </label>
+        {% endfor %}
+      </div>
+      <div class="bfh-q-actions">
+        <button type="button" class="btn btn-sm btn-outline-light" id="bfh-q-cancel">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-warning">Quarantine</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+(function () {
+  var overlay = document.getElementById("quarantineReasonModal");
+  var form = document.getElementById("quarantineReasonForm");
+  var cancelBtn = document.getElementById("bfh-q-cancel");
+  if (!overlay || !form) return;
+
+  function closeModal() {
+    overlay.classList.remove("is-open");
+    overlay.setAttribute("aria-hidden", "true");
+    form.querySelectorAll('input[name="reasons"]').forEach(function (cb) {
+      cb.checked = false;
+    });
+  }
+
+  function openModal(jokeId) {
+    form.action = "/moderation/jokes/" + encodeURIComponent(jokeId) + "/quarantine";
+    overlay.classList.add("is-open");
+    overlay.setAttribute("aria-hidden", "false");
+  }
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".quarantine-open-btn");
+    if (btn) {
+      e.preventDefault();
+      openModal(btn.getAttribute("data-joke-id"));
+      return;
+    }
+    if (e.target === overlay) {
+      closeModal();
+    }
+  });
+
+  if (cancelBtn) cancelBtn.addEventListener("click", closeModal);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && overlay.classList.contains("is-open")) {
+      closeModal();
+    }
+  });
+
+  form.addEventListener("submit", function (e) {
+    var any = form.querySelectorAll('input[name="reasons"]:checked').length > 0;
+    if (!any) {
+      e.preventDefault();
+      alert("Choose at least one quarantine reason.");
+      return false;
+    }
+    if (!confirm("Send this joke to quarantine for admin review?")) {
+      e.preventDefault();
+      return false;
+    }
+  });
+})();
+</script>
+{% endif %}
+
+<script>
+(function () {
+  function scrollToTop() {
+    try {
+      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    } catch (e) {
+      window.scrollTo(0, 0);
+    }
+  }
+  document.querySelectorAll(".bfh-to-top-btn").forEach(function (btn) {
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+      scrollToTop();
+    });
+  });
+  var floating = document.getElementById("bfh-back-to-top");
+  if (floating) {
+    var threshold = 400;
+    function updateVisibility() {
+      if (window.scrollY > threshold || document.documentElement.scrollTop > threshold) {
+        floating.classList.add("is-visible");
+      } else {
+        floating.classList.remove("is-visible");
+      }
+    }
+    window.addEventListener("scroll", updateVisibility, { passive: true });
+    updateVisibility();
+  }
+})();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/axios@1.7.2/dist/axios.min.js"></script>
+{% block scripts %}{% endblock %}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
+{% if show_newyear_effects %}
+  <script>
+    window.NEWYEAR_ENTERING_YEAR = {{ newyear_entering_year|int }};
+  </script>
+  <script src="{{ url_for('static', filename='newyear.js') }}"></script>
+{% endif %}
+
+
+{% if show_christmas_snow %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const snowLayer = document.getElementById('snow-layer');
+    const snowToggle = document.getElementById('snowToggle');
+    const STORAGE_KEY = 'jokes_snow_enabled';
+
+    if (!snowLayer) {
+      return;
+    }
+
+    function getSnowPreference() {
+      try {
+        const value = localStorage.getItem(STORAGE_KEY);
+        if (value === null) {
+          return true;
+        }
+        return value === 'true';
+      } catch (e) {
+        return true;
+      }
+    }
+
+    function applySnowEnabled(enabled) {
+      snowLayer.style.display = enabled ? 'block' : 'none';
+    }
+
+    const snowEnabled = getSnowPreference();
+    applySnowEnabled(snowEnabled);
+
+    if (snowToggle) {
+      snowToggle.checked = snowEnabled;
+      snowToggle.addEventListener('change', function () {
+        const enabled = !!snowToggle.checked;
+        applySnowEnabled(enabled);
+        try {
+          localStorage.setItem(STORAGE_KEY, String(enabled));
+        } catch (e) {}
+      });
+    }
+
+    const flakes = 120;
+
+    // Probability that a flake is a "special" emoji instead of ❄.
+    // 0.05 = 5%. Change this to 0.10 for 10%, etc.
+    const SPECIAL_FLAKE_CHANCE = 0.05;
+
+    const specialFlakes = [
+      "🤯","🤬","🤡","🤠","🥸","😈","👿","👹","👺","💀","☠️","👻","💩",
+      "🙈","🙉","🙊","🐖","🧟‍♀️","👨🏿","👱🏿‍♂️","🧑🏿‍🎄","👮🏻‍♀️","👨🏻‍⚕️",
+      "🧜🏻‍♂️","🏋🏻‍♂️","🩻","💊","🧬","💉","🔫","💣","⚔️","🔪","✂️","🥩","🏳️‍🌈","☃️"
+    ];
+
+    function pickFlakeChar() {
+      if (Math.random() < SPECIAL_FLAKE_CHANCE) {
+        const idx = Math.floor(Math.random() * specialFlakes.length);
+        return specialFlakes[idx];
+      }
+      return "❄";
+    }
+
+    for (let i = 0; i < flakes; i++) {
+      const flake = document.createElement('div');
+      flake.className = 'snowflake';
+      flake.textContent = pickFlakeChar();
+
+      const size = 0.4 + Math.random() * 1.2;
+      flake.style.fontSize = size + 'rem';
+
+      flake.style.left = Math.random() * 100 + 'vw';
+
+      const duration = 8 + Math.random() * 12;
+      flake.style.animationDuration = duration + 's';
+
+      const delay = Math.random() * -duration;
+      flake.style.animationDelay = delay + 's';
+
+      flake.style.opacity = (0.4 + Math.random() * 0.6).toFixed(2);
+
+      const drift = (Math.random() * 40 - 20).toFixed(1) + 'px';
+      flake.style.setProperty('--snow-drift', drift);
+
+      snowLayer.appendChild(flake);
+    }
+  });
+</script>
+{% endif %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  // Long-lived cookie helpers (used for Best/Newest feed sort)
+  function setCookie(name, value, maxAgeSeconds) {
+    const secure = location.protocol === "https:" ? "; Secure" : "";
+    document.cookie =
+      name + "=" + encodeURIComponent(value) +
+      "; Path=/" +
+      "; Max-Age=" + maxAgeSeconds +
+      "; SameSite=Lax" +
+      secure;
+  }
+  function getCookie(name) {
+    const prefix = name + "=";
+    for (const part of document.cookie.split(";")) {
+      const s = part.trim();
+      if (s.startsWith(prefix)) {
+        return decodeURIComponent(s.slice(prefix.length));
+      }
+    }
+    return null;
+  }
+
+  const sortYear = 60 * 60 * 24 * 365;
+  const sortAllowed = new Set(["best", "newest"]);
+  const sortRadios = document.querySelectorAll('input[data-sticky-sort="feed_sort"]');
+  if (sortRadios.length) {
+    const url = new URL(window.location.href);
+    const urlSort = (url.searchParams.get("sort") || "").toLowerCase();
+    if (urlSort && sortAllowed.has(urlSort)) {
+      setCookie("feed_sort", urlSort, sortYear);
+    } else {
+      const savedSort = (getCookie("feed_sort") || "").toLowerCase();
+      if (savedSort && sortAllowed.has(savedSort)) {
+        // Reflect cookie in the radios; server already sorted via cookie.
+        sortRadios.forEach((r) => { r.checked = r.value === savedSort; });
+      }
+    }
+    sortRadios.forEach((radio) => {
+      radio.addEventListener("change", () => {
+        if (!radio.checked || !sortAllowed.has(radio.value)) return;
+        setCookie("feed_sort", radio.value, sortYear);
+        radio.form && radio.form.submit();
+      });
+    });
+  }
+
+  const sel = document.querySelector('select[data-sticky-range="feed_range"]');
+  if (!sel) return;
+  const key = "feed_range";
+  const modifiedKey = "feed_range_modified";
+  const url = new URL(window.location.href);
+  const allowed = new Set(Array.from(sel.options).map(o => o.value));
+  const urlRange = url.searchParams.get("range");
+  // If URL has a valid range, treat it as current and remember it.
+  if (urlRange && allowed.has(urlRange)) {
+    sessionStorage.setItem(key, urlRange);
+    if (sessionStorage.getItem(modifiedKey) === "true") {
+      sel.classList.add("user-modified-range");
+    }
+  } else {
+    // No range in URL: if user previously chose one, redirect once to include it.
+    const saved = sessionStorage.getItem(key);
+    if (saved && allowed.has(saved)) {
+      url.searchParams.set("range", saved);
+      // Preserve current sort preference in the redirect URL when known
+      const sortCookie = (getCookie("feed_sort") || "").toLowerCase();
+      if (sortAllowed.has(sortCookie) && !url.searchParams.get("sort")) {
+        url.searchParams.set("sort", sortCookie);
+      }
+      window.location.replace(url.toString());
+      return; // redirecting, so stop here
+    }
+  }
+  // Always bind change handler so updates keep working forever.
+  sel.addEventListener("change", () => {
+    const v = sel.value;
+    if (!allowed.has(v)) return;
+    sessionStorage.setItem(key, v);
+    sessionStorage.setItem(modifiedKey, "true");
+    sel.classList.add("user-modified-range");
+    // Keep your existing behaviour: submit GET form so server renders correct list
+    sel.form && sel.form.submit();
+  });
+});
+</script>
+<script>
+document.addEventListener("click", async function(e) {
+    const copyBtn = e.target.closest(".copy-joke-btn");
+    if (copyBtn) {
+        const text = copyBtn.getAttribute("data-copy-text") || "";
+        try {
+            await navigator.clipboard.writeText(text);
+            const oldText = copyBtn.textContent;
+            copyBtn.textContent = "✓";
+            setTimeout(() => copyBtn.textContent = oldText, 1200);
+        } catch (err) {
+            alert("Copy failed.");
+        }
+    }
+    const quoteBtn = e.target.closest(".quote-comment-btn");
+    if (quoteBtn) {
+        const commentId = quoteBtn.getAttribute("data-comment-id");
+        const commentCard = document.getElementById("comment-" + commentId);
+        const hidden = document.getElementById("quoted_comment_id");
+        const preview = document.getElementById("quote-preview");
+        const previewText = document.getElementById("quote-preview-text");
+        const textarea = document.querySelector('textarea[name="body"]');
+        if (hidden && commentCard && preview && previewText && textarea) {
+            const quotedText = commentCard.querySelector("p");
+            hidden.value = commentId;
+            previewText.textContent = quotedText ? quotedText.textContent.trim() : "";
+            preview.classList.remove("d-none");
+            textarea.focus();
+            textarea.scrollIntoView({behavior:"smooth", block:"center"});
+        }
+    }
+    const clearBtn = e.target.closest("#clear-quote-btn");
+    if (clearBtn) {
+        const hidden = document.getElementById("quoted_comment_id");
+        const preview = document.getElementById("quote-preview");
+        const previewText = document.getElementById("quote-preview-text");
+        if (hidden) hidden.value = "";
+        if (preview) preview.classList.add("d-none");
+        if (previewText) previewText.textContent = "";
+    }
+});
+</script>
+<script>
+document.addEventListener("click", function(e) {
+    const quoteBtn =
+        e.target.closest(".quote-forum-btn");
+    if (quoteBtn) {
+        const replyId =
+            quoteBtn.getAttribute("data-reply-id");
+        const replyCard =
+            document.getElementById("forum-reply-" + replyId);
+        const hidden =
+            document.getElementById("quoted_reply_id");
+        const preview =
+            document.getElementById("forum-quote-preview");
+        const previewText =
+            document.getElementById("forum-quote-preview-text");
+        const textarea =
+            document.querySelector('textarea[name="body"]');
+        if (
+            replyCard &&
+            hidden &&
+            preview &&
+            previewText &&
+            textarea
+        ) {
+            const body =
+                replyCard.querySelector('.forum-reply-body');
+            hidden.value = replyId;
+            previewText.textContent =
+                body
+                ? body.textContent.trim()
+                : "";
+            preview.classList.remove("d-none");
+            textarea.focus();
+            textarea.scrollIntoView({
+                behavior:"smooth",
+                block:"center"
+            });
+        }
+    }
+    const clearBtn =
+        e.target.closest("#clear-forum-quote-btn");
+    if (clearBtn) {
+        const hidden =
+            document.getElementById("quoted_reply_id");
+        const preview =
+            document.getElementById("forum-quote-preview");
+        const previewText =
+            document.getElementById("forum-quote-preview-text");
+        if (hidden)
+            hidden.value = "";
+        if (preview)
+            preview.classList.add("d-none");
+        if (previewText)
+            previewText.textContent = "";
+    }
+});
+</script>
+<!-- <div id="bfh-flying-demon"></div>
+<script>
+(function(){
+  const sprite=document.getElementById("bfh-flying-demon");
+  if(!sprite) return;
+  let x=0,y=0,vx=0,vy=0;
+  function resetFlight(){
+    const size=160;
+    const w=window.innerWidth;
+    const h=window.innerHeight;
+    const side=Math.floor(Math.random()*4);
+    if(side===0){x=-size;y=Math.random()*h;vx=1.2+Math.random()*2.2;vy=(Math.random()-0.5)*1.8;}
+    if(side===1){x=w+size;y=Math.random()*h;vx=-(1.2+Math.random()*2.2);vy=(Math.random()-0.5)*1.8;}
+    if(side===2){x=Math.random()*w;y=-size;vx=(Math.random()-0.5)*1.8;vy=1.2+Math.random()*2.2;}
+    if(side===3){x=Math.random()*w;y=h+size;vx=(Math.random()-0.5)*1.8;vy=-(1.2+Math.random()*2.2);}
+    sprite.style.scale = vx < 0 ? "-1 1" : "1 1";
+  }
+  function tick(){
+    const size=180;
+    x+=vx;
+    y+=vy;
+    sprite.style.left=x+"px";
+    sprite.style.top=y+"px";
+    if(x<-size||x>window.innerWidth+size||y<-size||y>window.innerHeight+size){
+      setTimeout(resetFlight, 1200+Math.random()*4000);
+    }
+    requestAnimationFrame(tick);
+  }
+  resetFlight();
+  tick();
+})();
+</script>  -->
+<script>
+  document.addEventListener("click", function(e) {
+    const btn = document.getElementById("user-menu-toggle");
+    const menu = document.getElementById("user-menu-popout");
+    if (!btn || !menu) return;
+    function closeMenu() {
+      menu.classList.add("d-none");
+      btn.classList.remove("menu-open");
+      btn.blur();
+    }
+    function openMenu() {
+      const rect = btn.getBoundingClientRect();
+      menu.style.top = (rect.bottom + 4) + "px";
+      menu.style.right = (window.innerWidth - rect.right) + "px";
+      menu.classList.remove("d-none");
+      btn.classList.add("menu-open");
+    }
+    if (btn.contains(e.target)) {
+      if (menu.classList.contains("d-none")) {
+        openMenu();
+      } else {
+        closeMenu();
+      }
+      return;
+    }
+    if (!menu.contains(e.target)) {
+      closeMenu();
+    }
+  });
+</script>
+</body>
+</html>

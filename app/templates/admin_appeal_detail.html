@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Appeal #{{ appeal.id }} – Admin{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 mb-3">
+  <h1 class="h3 mb-0">Appeal #{{ appeal.id }} · {{ appeal.status }}</h1>
+  <a class="btn btn-sm btn-outline-light" href="{{ url_for('admin.appeals') }}">← All appeals</a>
+</div>
+
+<div class="mb-3 small text-muted">
+  Appellant:
+  {% if appellant %}
+    <a href="{{ url_for('main.user_profile', username=appellant.username) }}">{{ appellant.username }}</a>
+    (id {{ appellant.id }})
+    {% if appellant.duplicate_appeals_banned %}
+      <span class="badge bg-danger">appeals blocked</span>
+    {% endif %}
+  {% else %}?{% endif %}
+  · filed {{ appeal.created_at.strftime('%Y-%m-%d %H:%M') if appeal.created_at else '' }} UTC
+</div>
+
+{% if appeal.body %}
+  <div class="alert alert-secondary">
+    <strong>User note:</strong>
+    <div style="white-space:pre-wrap;">{{ appeal.body }}</div>
+  </div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card bg-dark border-danger">
+      <div class="card-header text-danger">Removed (archived) · was #{{ appeal.original_joke_id }}</div>
+      <div class="card-body">
+        {% if archived %}
+          <pre class="small bg-black p-2" style="white-space:pre-wrap; max-height:320px; overflow:auto;">{{ archived.body }}</pre>
+          <div class="small text-muted">
+            Score at removal: <strong>{{ archived.score }}</strong>
+            · votes archived: {{ archived.votes|length if archived.votes is defined else '?' }}
+            · comments: {{ archived.comments|length if archived.comments is defined else '?' }}
+            · author: {{ archived.author_username or archived.user_id }}
+            · {{ archived.created_at.strftime('%Y-%m-%d') if archived.created_at else '' }}
+          </div>
+        {% else %}
+          <p class="text-danger">Archive record missing.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card bg-dark border-success">
+      <div class="card-header text-success">Kept as original · #{{ appeal.kept_joke_id or '?' }}</div>
+      <div class="card-body">
+        {% if kept %}
+          <pre class="small bg-black p-2" style="white-space:pre-wrap; max-height:320px; overflow:auto;">{{ kept.body }}</pre>
+          <div class="small text-muted">
+            by {{ kept.author.username if kept.author else '?' }}
+            · score {{ kept.score }}
+            · <a href="{{ url_for('main.joke_detail', joke_id=kept.id) }}">open live</a>
+          </div>
+        {% else %}
+          <p class="text-muted">Kept joke is not on the site (deleted later or missing).</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if appeal.status == 'pending' %}
+  <div class="card bg-dark border-secondary mb-3">
+    <div class="card-body">
+      <div class="mb-2">
+        <label class="form-label">Admin note (optional, sent to user on reject)</label>
+        <input type="text" name="note" id="appeal-note" class="form-control" form="form-uphold" maxlength="255">
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <form id="form-uphold" method="post" action="{{ url_for('admin.appeal_uphold', appeal_id=appeal.id) }}"
+              onsubmit="return confirm('Uphold appeal and FULLY restore joke #{{ appeal.original_joke_id }}?');">
+          <input type="hidden" name="note" id="uphold-note">
+          <button type="submit" class="btn btn-success"
+                  onclick="document.getElementById('uphold-note').value=document.getElementById('appeal-note').value">
+            Uphold — restore joke
+          </button>
+        </form>
+        <form method="post" action="{{ url_for('admin.appeal_reject', appeal_id=appeal.id) }}"
+              onsubmit="return confirm('Reject this appeal?');">
+          <input type="hidden" name="note" id="reject-note">
+          <button type="submit" class="btn btn-danger"
+                  onclick="document.getElementById('reject-note').value=document.getElementById('appeal-note').value">
+            Reject appeal
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+{% else %}
+  <div class="alert alert-secondary">
+    Decided: <strong>{{ appeal.status }}</strong>
+    {% if appeal.reviewed_at %} at {{ appeal.reviewed_at.strftime('%Y-%m-%d %H:%M') }} UTC{% endif %}
+    {% if appeal.review_note %}<br>Note: {{ appeal.review_note }}{% endif %}
+  </div>
+{% endif %}
+
+{% if appellant %}
+  <div class="card bg-dark border-secondary">
+    <div class="card-header">Abuse controls</div>
+    <div class="card-body d-flex flex-wrap gap-2 align-items-center">
+      {% if appellant.duplicate_appeals_banned %}
+        <form method="post" action="{{ url_for('admin.appeal_ban_user', user_id=appellant.id) }}">
+          <input type="hidden" name="ban" value="0">
+          <button type="submit" class="btn btn-outline-success btn-sm">Allow appeals again</button>
+        </form>
+        <span class="small text-muted">This user is currently blocked from appealing.</span>
+      {% else %}
+        <form method="post" action="{{ url_for('admin.appeal_ban_user', user_id=appellant.id) }}"
+              onsubmit="return confirm('Block {{ appellant.username }} from filing further duplicate appeals?');">
+          <input type="hidden" name="ban" value="1">
+          <button type="submit" class="btn btn-outline-danger btn-sm">Block user from appeals</button>
+        </form>
+        <span class="small text-muted">Use if they spam frivolous appeals.</span>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

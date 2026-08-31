@@ -1,53 +1,155 @@
 {% extends "base.html" %}
-{% block title %}Submit joke - jokes.supergalley.com{% endblock %}
+{% block title %}Submit joke - BannedFromHeaven.com{% endblock %}
 {% block content %}
+{% set active_draft = draft %}
+{% set form_body = request.form.get('body') if request.form.get('body') is not none else (active_draft.body if active_draft else '') %}
+{% set form_salute = request.form.get('salute_to') if request.form.get('salute_to') is not none else (active_draft.salute_to if active_draft and active_draft.salute_to else '') %}
+{% set form_cat = request.form.get('category_id') if request.form.get('category_id') is not none else (active_draft.category_id if active_draft and active_draft.category_id else '') %}
+{% set form_sub = request.form.get('subcategory_id') if request.form.get('subcategory_id') is not none else (active_draft.subcategory_id if active_draft and active_draft.subcategory_id else '') %}
 <div class="row justify-content-center mt-4">
   <div class="col-md-8">
-    <h3 class="mb-3">Submit a new joke</h3>
-    <form id="submitForm" method="post" enctype="multipart/form-data">
+    <h3 class="mb-3">
+      {% if active_draft %}Edit draft #{{ active_draft.id }}{% else %}Submit a new joke{% endif %}
+    </h3>
+
+    {% if drafts %}
+    <div class="card bg-dark border-secondary mb-4">
+      <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <span>Your drafts <span class="text-muted small">({{ drafts|length }})</span></span>
+        {% if active_draft %}
+        <a class="btn btn-sm btn-outline-light" href="{{ url_for('main.submit_joke') }}">New blank form</a>
+        {% endif %}
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for d in drafts %}
+        <li class="list-group-item bg-dark text-light d-flex flex-wrap align-items-center gap-2
+                   {% if active_draft and active_draft.id == d.id %}border-start border-3 border-info{% endif %}">
+          <div class="flex-grow-1 min-w-0">
+            <a href="{{ url_for('main.submit_joke', draft=d.id) }}" class="text-decoration-none">
+              <strong>{{ d.preview_title }}</strong>
+            </a>
+            <div class="small text-muted">
+              {{ (d.joke_type or 'joke')|capitalize }}
+              · updated {{ d.updated_at.strftime('%Y-%m-%d %H:%M') if d.updated_at else '?' }} UTC
+              {% if d.image_filename %}· has image{% endif %}
+              {% if d.video_filename %}· has clip{% endif %}
+            </div>
+          </div>
+          <a class="btn btn-sm btn-outline-info" href="{{ url_for('main.submit_joke', draft=d.id) }}">Edit</a>
+          <form method="post" action="{{ url_for('main.delete_joke_draft', draft_id=d.id) }}" class="m-0"
+                onsubmit="return confirm('Delete this draft? Media saved only on the draft will be removed.');">
+            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <form id="submitForm" method="post" enctype="multipart/form-data" autocomplete="off"
+          action="{{ url_for('main.submit_joke') }}">
+      <input type="hidden" name="form_action" id="form_action" value="submit">
+      {% if active_draft %}
+      <input type="hidden" name="draft_id" id="draft_id" value="{{ active_draft.id }}">
+      {% else %}
+      <input type="hidden" name="draft_id" id="draft_id" value="">
+      {% endif %}
+      <input type="hidden" name="clear_media" id="clear_media" value="0">
+      <input type="hidden" name="joke_type" id="joke_type" value="{{ joke_type or 'joke' }}">
+
       <div class="mb-3">
-        <label class="form-label">Type</label><br>
-        <div class="form-check form-check-inline">
-          <input class="form-check-input" type="radio" name="joke_type" id="jt-joke" value="joke"
-                 {% if joke_type != 'meme' %}checked{% endif %}>
-          <label class="form-check-label" for="jt-joke">Joke</label>
+        <label class="form-label">Post type</label>
+        <div>
+          <span id="post-type-badge" class="badge text-bg-secondary">Joke</span>
+          <span class="form-text ms-2">Defaults to Joke. Add an image → Meme; add a video → Clip.</span>
         </div>
-        <div class="form-check form-check-inline">
-          <input class="form-check-input" type="radio" name="joke_type" id="jt-meme" value="meme"
-                 {% if joke_type == 'meme' %}checked{% endif %}>
-          <label class="form-check-label" for="jt-meme">Meme</label>
+        {% if staff_html_ok %}
+        <div class="form-text mt-1">
+          As a mod/admin you can use limited HTML in the text
+          (<code>&lt;b&gt;</code>, <code>&lt;i&gt;</code>, <code>&lt;a&gt;</code>, lists, etc.).
+          Scripts and event handlers are stripped; unclosed tags are auto-closed on submit.
         </div>
-        <div class="form-check form-check-inline">
-          <input class="form-check-input" type="radio" name="joke_type" id="jt-clip" value="clip"
-                 {% if joke_type == 'clip' %}checked{% endif %}>
-          <label class="form-check-label" for="jt-clip">Clip</label>
-        </div>
+        {% endif %}
       </div>
       <div class="mb-3">
         <label class="form-label">Category (optional)</label>
-        <select name="category_id" class="form-select">
+        <select name="category_id" id="category_id" class="form-select">
           <option value="">Uncategorised</option>
           {% for cat in categories %}
-            <option value="{{ cat.id }}">{{ cat.name }}</option>
+            <option value="{{ cat.id }}"
+              {% if form_cat and form_cat|string == cat.id|string %}selected{% endif %}>
+              {{ cat.name }}
+            </option>
           {% endfor %}
         </select>
       </div>
+      <div class="mb-3" id="subcategory-wrap">
+        <label class="form-label">Subcategory (optional)</label>
+        <select name="subcategory_id" id="subcategory_id" class="form-select"
+                data-selected="{{ form_sub or '' }}">
+          <option value="">— none —</option>
+        </select>
+        <div class="form-text">Pick a category first; subchoices depend on that category.</div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="salute_to">Salute to</label>
+        {# Hidden decoy so password managers don't dump the site username into Salute to #}
+        <input type="text" name="username_decoy" value="" tabindex="-1" aria-hidden="true"
+               autocomplete="username"
+               style="position:absolute;left:-9999px;height:0;width:0;opacity:0;pointer-events:none;">
+        <input type="text"
+              name="salute_to"
+              id="salute_to"
+              class="form-control"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-form-type="other"
+              readonly
+              value="{% if form_salute and form_salute|lower != current_user.username|lower %}{{ form_salute }}{% endif %}"
+              placeholder="Type at least 3 characters of a member name">
+        <div id="salute_suggestions"
+            class="list-group mt-1"
+            style="display:none; position:absolute; z-index:10000; max-width:420px;"></div>
+        <div class="form-text">Optional. Credit the user who inspired or originally shared it.</div>
+      </div>
       <div id="joke-text-group" class="mb-3">
-        <label class="form-label">Joke</label>
-        <textarea name="body" rows="6" class="form-control">{{ request.form.body }}</textarea>
+        <label class="form-label" id="body-label">{% if joke_type in ('meme', 'clip') %}Caption (optional){% else %}Joke{% endif %}</label>
+        <textarea name="body" id="joke-body" rows="6" class="form-control"
+                  placeholder="Write the joke (or caption). Paste an image here to turn this into a meme.">{{ form_body }}</textarea>
       </div>
 
-      <div id="meme-upload-group" class="mb-3" style="display:none;">
-        <label class="form-label">Meme image</label>
-        
+      <div id="meme-upload-group" class="mb-3">
+        <label class="form-label">Meme image (optional — Browse or paste)</label>
+
+        {% if active_draft and active_draft.image_filename %}
+        <div id="draft-meme-existing" class="mb-2 p-2 border border-secondary rounded"
+             data-has-media="1"
+             data-filename="{{ active_draft.image_filename|e }}">
+          <div class="small text-muted mb-1">Saved on this draft (will be used if you don’t pick a new file):</div>
+          <img src="{{ UPLOADS_URL }}/{{ active_draft.image_filename|urlencode }}"
+               alt="Draft meme"
+               style="max-width:100%; max-height:220px; border-radius:8px; background:#111;">
+          <div class="mt-2">
+            <button type="button" id="draft-meme-clear" class="btn btn-sm btn-outline-warning">
+              Remove saved image
+            </button>
+          </div>
+        </div>
+        {% else %}
+        <div id="draft-meme-existing" style="display:none;" data-has-media="0"></div>
+        {% endif %}
+
         <div id="meme-paste-zone"
               class="p-3 mb-2"
               style="border:2px dashed #666; border-radius:10px; background:#111; color:#ccc; text-align:center;">
-          You can paste an image into the Joke textbox if you don't have a saved image
+          Paste an image into the Joke textbox if you don't have an image file.
           <div id="meme-paste-status" class="small mt-2" style="opacity:.8;"></div>
         </div>
-        
-        <!-- Whatever paste/drop zone you already added can stay above this -->
+
         <input id="meme-file-input" type="file" name="image" accept="image/*" class="form-control">
         <div id="meme-preview-wrap" class="mt-2" style="display:none;">
           <img id="meme-preview"
@@ -62,12 +164,49 @@
         </div>
         <small class="text-muted">Image file (JPG/PNG/GIF).</small>
       </div>
-      <div id="clip-upload-group" class="mb-3" style="display:none;">
-        <label class="form-label">Video clip</label>
-        <input type="file" name="clip" accept="video/*" class="form-control">
-        <small class="text-muted">Max 60s. Will be converted to MP4 and capped to 25MB.</small>
+      <div id="clip-upload-group" class="mb-3">
+        <label class="form-label">Video clip (optional — Browse)</label>
+
+        {% if active_draft and active_draft.video_filename %}
+        <div id="draft-clip-existing" class="mb-2 p-2 border border-secondary rounded"
+             data-has-media="1"
+             data-filename="{{ active_draft.video_filename|e }}">
+          <div class="small text-muted mb-1">Saved on this draft (will be used if you don’t pick a new file):</div>
+          {% if active_draft.video_thumb %}
+          <img src="{{ THUMBS_URL }}/{{ active_draft.video_thumb|urlencode }}"
+               alt="Clip thumb"
+               style="max-width:100%; max-height:160px; border-radius:8px; background:#111;"
+               onerror="this.style.display='none'">
+          {% endif %}
+          <div class="small mt-1">{{ active_draft.video_filename }}</div>
+          <div class="mt-2">
+            <button type="button" id="draft-clip-clear" class="btn btn-sm btn-outline-warning">
+              Remove saved clip
+            </button>
+          </div>
+        </div>
+        {% else %}
+        <div id="draft-clip-existing" style="display:none;" data-has-media="0"></div>
+        {% endif %}
+
+        <input type="file" name="clip" id="clip-file-input" accept="video/*" class="form-control">
+        <small class="text-muted">
+          Max {{ max_clip_size_mb }}MB / {{ max_clip_length_human }}.
+          Will be converted to MP4.
+        </small>
       </div>
-      <button type="submit" class="btn btn-primary" id="submitBtn">Submit</button>
+
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+          {% if active_draft %}Submit draft{% else %}Submit{% endif %}
+        </button>
+        <button type="button" class="btn btn-outline-secondary" id="saveDraftBtn">
+          {% if active_draft %}Update draft{% else %}Save draft{% endif %}
+        </button>
+        {% if active_draft %}
+        <a href="{{ url_for('main.submit_joke') }}" class="btn btn-link text-muted">Cancel edit</a>
+        {% endif %}
+      </div>
       <div id="upload-status" class="mt-3 small text-muted" style="display:none;"></div>
       <div id="upload-progress-wrap" class="mt-2" style="display:none; height:10px; background:#333; border-radius:6px; overflow:hidden;">
         <div id="upload-progress" style="height:10px; width:0%; background:#9f7bff;"></div>
@@ -76,7 +215,7 @@
   </div>
 </div>
 <div class="row justify-content-center mt-4">
-•
+🤠
 </div>
 {% endblock %}
 {% block scripts %}
@@ -84,60 +223,247 @@
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  function toggleType() {
-    const isMeme = document.getElementById('jt-meme').checked;
-    const isClip = document.getElementById('jt-clip').checked;
-    document.getElementById('joke-text-group').style.display = 'block';
-    document.getElementById('meme-upload-group').style.display = isMeme ? 'block' : 'none';
-    document.getElementById('clip-upload-group').style.display = isClip ? 'block' : 'none';
-  }
+    const saluteInput = document.getElementById('salute_to');
+    const saluteSuggestions = document.getElementById('salute_suggestions');
+    const currentUsername = {{ current_user.username|tojson }};
+    let saluteTimer = null;
+    let saluteTouched = false;
 
+    if (saluteInput && saluteSuggestions) {
+      const unlockSalute = () => {
+        saluteInput.removeAttribute('readonly');
+      };
+      saluteInput.addEventListener('focus', unlockSalute);
+      saluteInput.addEventListener('pointerdown', unlockSalute);
 
-  // --- Meme preview ---
+      const stripAutofillSelf = () => {
+        if (saluteTouched) return;
+        const v = (saluteInput.value || '').trim();
+        if (v && currentUsername && v.toLowerCase() === String(currentUsername).toLowerCase()) {
+          saluteInput.value = '';
+        }
+      };
+      setTimeout(stripAutofillSelf, 0);
+      setTimeout(stripAutofillSelf, 250);
+      setTimeout(stripAutofillSelf, 1000);
+      saluteInput.addEventListener('animationstart', (e) => {
+        if (e.animationName === 'onAutoFillStart' || (e.animationName || '').includes('auto')) {
+          stripAutofillSelf();
+        }
+      });
+
+      saluteInput.addEventListener('input', () => {
+        saluteTouched = true;
+        const q = saluteInput.value.trim();
+        if (saluteTimer) clearTimeout(saluteTimer);
+        if (q.length < 3) {
+          saluteSuggestions.style.display = 'none';
+          saluteSuggestions.innerHTML = '';
+          return;
+        }
+        saluteTimer = setTimeout(async () => {
+          try {
+            const r = await fetch('/api/users/salute-search?q=' + encodeURIComponent(q));
+            const j = await r.json();
+            saluteSuggestions.innerHTML = '';
+            if (!j.ok || !j.users || !j.users.length) {
+              saluteSuggestions.style.display = 'none';
+              return;
+            }
+            j.users.forEach(username => {
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'list-group-item list-group-item-action';
+              btn.textContent = username;
+              btn.addEventListener('click', () => {
+                saluteTouched = true;
+                saluteInput.value = username;
+                saluteSuggestions.style.display = 'none';
+                saluteSuggestions.innerHTML = '';
+              });
+              saluteSuggestions.appendChild(btn);
+            });
+            saluteSuggestions.style.display = 'block';
+          } catch (e) {
+            saluteSuggestions.style.display = 'none';
+          }
+        }, 250);
+      });
+      document.addEventListener('click', (e) => {
+        if (!saluteInput.contains(e.target) && !saluteSuggestions.contains(e.target)) {
+          saluteSuggestions.style.display = 'none';
+        }
+      });
+    }
+
+  const SUBMIT_TYPES = new Set(['joke', 'meme', 'clip']);
+  const SUBCATS_BY_CAT = {{ (subcategories_by_category or {})|tojson }};
+  const jokeTypeInput = document.getElementById('joke_type');
+  const postTypeBadge = document.getElementById('post-type-badge');
+  const bodyLabel = document.getElementById('body-label');
+  const jokeBody = document.getElementById('joke-body');
+
+  // --- Category → Subcategory dependent select ---
+  (function wireSubcategorySelect() {
+    const catSel = document.getElementById('category_id');
+    const subSel = document.getElementById('subcategory_id');
+    if (!catSel || !subSel) return;
+    const preferred = (subSel.getAttribute('data-selected') || '').trim();
+
+    function fillSubs(catId, keepId) {
+      const list = (catId && SUBCATS_BY_CAT[catId]) ? SUBCATS_BY_CAT[catId] : [];
+      subSel.innerHTML = '';
+      const none = document.createElement('option');
+      none.value = '';
+      none.textContent = list.length ? '— none —' : (catId ? '— no subcategories —' : '— pick a category first —');
+      subSel.appendChild(none);
+      list.forEach(function (s) {
+        const opt = document.createElement('option');
+        opt.value = String(s.id);
+        opt.textContent = s.name;
+        if (keepId && String(s.id) === String(keepId)) opt.selected = true;
+        subSel.appendChild(opt);
+      });
+      subSel.disabled = !catId;
+    }
+
+    catSel.addEventListener('change', function () {
+      fillSubs(catSel.value, '');
+    });
+    fillSubs(catSel.value, preferred);
+  })();
+
+  // --- Auto post type from media (no radios / no sticky cookie) ---
   const memeInput = document.getElementById('meme-file-input');
   const memePreviewWrap = document.getElementById('meme-preview-wrap');
   const memePreview = document.getElementById('meme-preview');
   const memePreviewMeta = document.getElementById('meme-preview-meta');
   const memeClearBtn = document.getElementById('meme-clear');
+  const draftMemeExisting = document.getElementById('draft-meme-existing');
+  const draftClipExisting = document.getElementById('draft-clip-existing');
+  const clearMediaInput = document.getElementById('clear_media');
+  const draftIdInput = document.getElementById('draft_id');
+  const formActionInput = document.getElementById('form_action');
+  const clipInput = document.getElementById('clip-file-input');
 
   let memeObjectUrl = null;
 
+  function hasDraftMeme() {
+    return draftMemeExisting && draftMemeExisting.dataset.hasMedia === '1'
+      && (!clearMediaInput || clearMediaInput.value !== '1');
+  }
+  function hasDraftClip() {
+    return draftClipExisting && draftClipExisting.dataset.hasMedia === '1'
+      && (!clearMediaInput || clearMediaInput.value !== '1');
+  }
+  function hasNewMeme() {
+    return !!(memeInput && memeInput.files && memeInput.files[0]);
+  }
+  function hasNewClip() {
+    return !!(clipInput && clipInput.files && clipInput.files[0]);
+  }
+
+  function setPostType(value) {
+    if (!SUBMIT_TYPES.has(value)) value = 'joke';
+    if (jokeTypeInput) jokeTypeInput.value = value;
+    if (postTypeBadge) {
+      postTypeBadge.textContent = value === 'meme' ? 'Meme' : (value === 'clip' ? 'Clip' : 'Joke');
+      postTypeBadge.className = 'badge ' + (
+        value === 'meme' ? 'text-bg-info' :
+        value === 'clip' ? 'text-bg-warning text-dark' :
+        'text-bg-secondary'
+      );
+    }
+    if (bodyLabel) {
+      bodyLabel.textContent = (value === 'meme' || value === 'clip')
+        ? 'Caption (optional)'
+        : 'Joke';
+    }
+  }
+
+  function syncPostTypeFromMedia() {
+    // Clip wins if a video is present; else meme if image; else joke.
+    if (hasNewClip() || hasDraftClip()) setPostType('clip');
+    else if (hasNewMeme() || hasDraftMeme()) setPostType('meme');
+    else setPostType('joke');
+  }
+
   function showMemePreview(file) {
     if (!file || !file.type || !file.type.startsWith('image/')) return;
-
-    // Clean up old object URL to avoid memory leaks
     if (memeObjectUrl) URL.revokeObjectURL(memeObjectUrl);
-
     memeObjectUrl = URL.createObjectURL(file);
     if (memePreview) memePreview.src = memeObjectUrl;
     if (memePreviewWrap) memePreviewWrap.style.display = 'block';
-
     const kb = Math.round(file.size / 1024);
     if (memePreviewMeta) memePreviewMeta.textContent = `${file.name} (${kb} KB)`;
+    if (clearMediaInput) clearMediaInput.value = '0';
+    // Choosing an image clears a pending clip file so type is unambiguous
+    if (clipInput) clipInput.value = '';
+    if (draftClipExisting && draftClipExisting.dataset.hasMedia === '1') {
+      // keep draft clip unless user clears it; new image still implies meme for this submit
+    }
+    setPostType('meme');
   }
 
   function clearMemePreview() {
     if (memeObjectUrl) URL.revokeObjectURL(memeObjectUrl);
     memeObjectUrl = null;
-
     if (memePreview) memePreview.removeAttribute('src');
     if (memePreviewWrap) memePreviewWrap.style.display = 'none';
     if (memePreviewMeta) memePreviewMeta.textContent = '';
-
-    // Clear file input
     if (memeInput) memeInput.value = '';
+    syncPostTypeFromMedia();
   }
 
   if (memeInput) {
     memeInput.addEventListener('change', () => {
       const file = memeInput.files?.[0];
-      if (file) showMemePreview(file);
-      else clearMemePreview();
+      if (file) {
+        if (clearMediaInput) clearMediaInput.value = '0';
+        showMemePreview(file);
+      } else {
+        clearMemePreview();
+      }
+    });
+  }
+
+  if (clipInput) {
+    clipInput.addEventListener('change', () => {
+      const file = clipInput.files?.[0];
+      if (file) {
+        if (clearMediaInput) clearMediaInput.value = '0';
+        // New clip clears new meme file selection
+        clearMemePreview();
+        if (memeInput) memeInput.value = '';
+        setPostType('clip');
+      } else {
+        syncPostTypeFromMedia();
+      }
     });
   }
 
   if (memeClearBtn) {
     memeClearBtn.addEventListener('click', clearMemePreview);
+  }
+
+  const draftMemeClear = document.getElementById('draft-meme-clear');
+  if (draftMemeClear && draftMemeExisting) {
+    draftMemeClear.addEventListener('click', () => {
+      draftMemeExisting.style.display = 'none';
+      draftMemeExisting.dataset.hasMedia = '0';
+      if (clearMediaInput) clearMediaInput.value = '1';
+      clearMemePreview();
+    });
+  }
+  const draftClipClear = document.getElementById('draft-clip-clear');
+  if (draftClipClear && draftClipExisting) {
+    draftClipClear.addEventListener('click', () => {
+      draftClipExisting.style.display = 'none';
+      draftClipExisting.dataset.hasMedia = '0';
+      if (clearMediaInput) clearMediaInput.value = '1';
+      if (clipInput) clipInput.value = '';
+      syncPostTypeFromMedia();
+    });
   }
 
 
@@ -150,21 +476,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function putFileIntoInput(file) {
-    // Make sure meme mode is selected so the UI shows the meme upload area
-    const memeRadio = document.getElementById('jt-meme');
-    if (memeRadio && !memeRadio.checked) {
-      memeRadio.checked = true;
-      toggleType();
-    }
-
-    // Programmatically set <input type="file"> using DataTransfer
     const dt = new DataTransfer();
     dt.items.add(file);
     if (memeInput) memeInput.files = dt.files;
-
+    if (clearMediaInput) clearMediaInput.value = '0';
     setMemeStatus(`Selected: ${file.name} (${Math.round(file.size/1024)} KB)`);
-
-    // ✅ Force thumbnail preview even on iOS Safari (which may not fire 'change')
     showMemePreview(file);
   }
 
@@ -180,7 +496,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
 
-  // Paste handler on the zone (desktop browsers mainly, and only if the zone exists)
   if (memeZone) {
     memeZone.addEventListener('paste', (e) => {
       const imgFile = extractImageFileFromClipboard(e);
@@ -193,7 +508,6 @@ document.addEventListener('DOMContentLoaded', () => {
       putFileIntoInput(file);
     });
 
-    // Drag & drop handler
     memeZone.addEventListener('dragover', (e) => {
       e.preventDefault();
       memeZone.style.borderColor = '#9f7bff';
@@ -213,10 +527,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Also allow paste anywhere on the page, but only when meme mode is selected
+  // Paste image anywhere (including joke textbox) → meme
   document.addEventListener('paste', (e) => {
-    const isMeme = document.getElementById('jt-meme')?.checked;
-    if (!isMeme) return;
     const imgFile = extractImageFileFromClipboard(e);
     if (!imgFile) return;
     e.preventDefault();
@@ -224,13 +536,19 @@ document.addEventListener('DOMContentLoaded', () => {
     putFileIntoInput(file);
   });
 
-  document.getElementById('jt-joke').addEventListener('change', toggleType);
-  document.getElementById('jt-meme').addEventListener('change', toggleType);
-  document.getElementById('jt-clip').addEventListener('change', toggleType);
-  toggleType();
+  // Initial type from draft media / server value
+  syncPostTypeFromMedia();
+  if (jokeTypeInput && SUBMIT_TYPES.has(jokeTypeInput.value) && jokeTypeInput.value !== 'joke') {
+    // Keep draft's meme/clip if media still attached
+    if ((jokeTypeInput.value === 'meme' && (hasDraftMeme() || hasNewMeme())) ||
+        (jokeTypeInput.value === 'clip' && (hasDraftClip() || hasNewClip()))) {
+      setPostType(jokeTypeInput.value);
+    }
+  }
 
   const form = document.getElementById('submitForm');
   const btn = document.getElementById('submitBtn');
+  const saveDraftBtn = document.getElementById('saveDraftBtn');
   const statusEl = document.getElementById('upload-status');
   const progWrap = document.getElementById('upload-progress-wrap');
   const progBar = document.getElementById('upload-progress');
@@ -246,24 +564,37 @@ document.addEventListener('DOMContentLoaded', () => {
     progBar.style.width = pct + '%';
   }
 
-  form.addEventListener('submit', async (e) => {
-    const isMeme = document.getElementById('jt-meme').checked;
-    const isClip = document.getElementById('jt-clip').checked;
-    if (!isMeme && !isClip) return; // normal jokes use old POST
-    e.preventDefault();
+  function currentDraftId() {
+    return (draftIdInput && draftIdInput.value) ? String(draftIdInput.value).trim() : '';
+  }
+
+  async function tusUploadMedia({ asDraft }) {
+    syncPostTypeFromMedia();
+    const jt = (jokeTypeInput && jokeTypeInput.value) || 'joke';
+    const isMeme = jt === 'meme';
+    const isClip = jt === 'clip';
+    if (!isMeme && !isClip) return false;
 
     const fileInput = isMeme ? document.querySelector('input[name="image"]')
                              : document.querySelector('input[name="clip"]');
     const file = fileInput?.files?.[0];
-    if (!file) { setStatus('Pick a file first.'); return; }
+    if (!file) {
+      setStatus(asDraft
+        ? 'Pick a file to attach to the draft, or save text-only if you already have media.'
+        : 'Pick a file first (or use media already saved on the draft).');
+      return true; // handled (error)
+    }
 
     btn.disabled = true;
+    if (saveDraftBtn) saveDraftBtn.disabled = true;
     setStatus('Requesting upload token...');
 
     const jokeType = isMeme ? 'meme' : 'clip';
     const categoryId = document.querySelector('select[name="category_id"]').value || '';
+    const subcategoryId = document.querySelector('select[name="subcategory_id"]')?.value || '';
     const body = document.querySelector('textarea[name="body"]').value || '';
-
+    const saluteTo = document.querySelector('input[name="salute_to"]').value || '';
+    const draftId = currentDraftId();
     let token;
     try {
       const r = await fetch('/api/uploads/sign', {
@@ -276,33 +607,42 @@ document.addEventListener('DOMContentLoaded', () => {
       token = j.token;
     } catch (err) {
       btn.disabled = false;
+      if (saveDraftBtn) saveDraftBtn.disabled = false;
       setStatus('Token error: ' + err.message);
-      return;
+      return true;
     }
 
-    setStatus('Uploading (resumable)...');
+    setStatus(asDraft ? 'Uploading draft media (resumable)...' : 'Uploading (resumable)...');
     setProgress(0);
 
     const endpoint = '{{ (UPLOAD_BASE or "").rstrip("/") }}/files/';
     if (!endpoint || endpoint === '/files/') {
       btn.disabled = false;
+      if (saveDraftBtn) saveDraftBtn.disabled = false;
       setStatus('UPLOAD_BASE not configured (UPLOAD_DOMAIN missing).');
-      return;
+      return true;
     }
+
+    const metadata = {
+      filename: file.name,
+      joke_type: jokeType,
+      category_id: categoryId,
+      subcategory_id: subcategoryId,
+      body,
+      salute_to: saluteTo,
+      token,
+      content_type: file.type || ''
+    };
+    if (asDraft) metadata.as_draft = '1';
+    if (draftId) metadata.draft_id = draftId;
 
     const upload = new tus.Upload(file, {
       endpoint,
       retryDelays: [0, 1000, 3000, 5000, 10000],
-      metadata: {
-        filename: file.name,
-        joke_type: jokeType,
-        category_id: categoryId,
-        body,
-        token,
-        content_type: file.type || ''
-      },
+      metadata,
       onError(error) {
         btn.disabled = false;
+        if (saveDraftBtn) saveDraftBtn.disabled = false;
         setStatus('Upload failed: ' + error);
       },
       onProgress(bytesUploaded, bytesTotal) {
@@ -310,11 +650,92 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       onSuccess() {
         setProgress(100);
-        setStatus('Upload complete. Processing on the server... (clips take longer).');
-        setTimeout(() => { window.location.href = '/'; }, 2500);
+        if (asDraft) {
+          // Processor converts media then finalizes the draft asynchronously.
+          const waitMs = isClip ? 8000 : 3000;
+          setStatus(
+            isClip
+              ? 'Clip received — encoding into draft (this can take a bit)…'
+              : 'Draft media uploaded. Saving draft…'
+          );
+          setTimeout(() => {
+            const did = currentDraftId();
+            window.location.href = did
+              ? ('/submit?draft=' + encodeURIComponent(did))
+              : '/submit';
+          }, waitMs);
+        } else {
+          setStatus('Upload complete. Processing on the server... (clips take longer).');
+          setTimeout(() => { window.location.href = '/'; }, 2500);
+        }
       }
     });
     upload.start();
+    return true;
+  }
+
+  if (saveDraftBtn) {
+    saveDraftBtn.addEventListener('click', async () => {
+      syncPostTypeFromMedia();
+      const jt = (jokeTypeInput && jokeTypeInput.value) || 'joke';
+      const isMeme = jt === 'meme';
+      const isClip = jt === 'clip';
+      const fileInput = isMeme ? document.querySelector('input[name="image"]')
+                               : document.querySelector('input[name="clip"]');
+      const hasNewFile = !!(fileInput && fileInput.files && fileInput.files[0]);
+
+      if ((isMeme || isClip) && hasNewFile) {
+        // Resumable upload → finalize as draft
+        await tusUploadMedia({ asDraft: true });
+        return;
+      }
+
+      // Text draft, or media draft with existing saved media / text-only update
+      if (formActionInput) formActionInput.value = 'save_draft';
+      if (btn) {
+        btn.disabled = true;
+      }
+      saveDraftBtn.disabled = true;
+      saveDraftBtn.textContent = 'Saving…';
+      form.submit();
+    });
+  }
+
+  form.addEventListener('submit', async (e) => {
+    // Save draft path is a normal POST (button sets form_action before submit)
+    if (formActionInput && formActionInput.value === 'save_draft') {
+      return;
+    }
+
+    syncPostTypeFromMedia();
+    const jt = (jokeTypeInput && jokeTypeInput.value) || 'joke';
+    const isMeme = jt === 'meme';
+    const isClip = jt === 'clip';
+    if (!isMeme && !isClip) {
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Submitting…';
+      }
+      return; // normal POST continues
+    }
+
+    const fileInput = isMeme ? document.querySelector('input[name="image"]')
+                             : document.querySelector('input[name="clip"]');
+    const hasNewFile = !!(fileInput && fileInput.files && fileInput.files[0]);
+    const hasExisting = isMeme ? hasDraftMeme() : hasDraftClip();
+
+    if (!hasNewFile && hasExisting) {
+      // Publish using media already on the draft — normal form POST
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Submitting…';
+      }
+      if (saveDraftBtn) saveDraftBtn.disabled = true;
+      return;
+    }
+
+    e.preventDefault();
+    await tusUploadMedia({ asDraft: false });
   });
 });
 </script>

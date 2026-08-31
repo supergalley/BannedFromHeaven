@@ -2,41 +2,213 @@
 {% block title %}Admin – Categories{% endblock %}
 
 {% block content %}
-<h2>Categories</h2>
+<h2>Categories &amp; subcategories</h2>
+<p class="text-muted small">
+  Subcategories appear under a parent category on Submit, Edit, Search, and listings.
+  Leave a joke with only a category if no sub-topic fits.
+  Click a row to expand its subcategory card.
+</p>
 
-<form method="post" class="mb-3">
-  <div class="row">
+<form method="post" class="mb-4 card bg-dark border-secondary p-3">
+  <input type="hidden" name="action" value="add_category">
+  <h3 class="h6">Add category</h3>
+  <div class="row g-2 align-items-end">
     <div class="col-md-3">
-      <input name="slug" class="form-control" placeholder="slug (e.g. knockknock)">
+      <label class="form-label small">Slug</label>
+      <input name="slug" class="form-control form-control-sm" placeholder="e.g. aids (optional — auto from name)">
     </div>
     <div class="col-md-5">
-      <input name="name" class="form-control" placeholder="Display name (e.g. Knock-Knock Jokes)">
+      <label class="form-label small">Display name</label>
+      <input name="name" class="form-control form-control-sm" placeholder="e.g. AIDS" required>
     </div>
     <div class="col-md-2">
-      <button class="btn btn-primary w-100" type="submit">Add</button>
+      <button class="btn btn-primary btn-sm w-100" type="submit">Add category</button>
     </div>
   </div>
 </form>
 
-<table class="table table-dark table-sm">
-  <thead>
-    <tr><th>ID</th><th>Slug</th><th>Name</th><th></th></tr>
-  </thead>
-  <tbody>
-  {% for c in categories %}
-    <tr>
-      <td>{{ c.id }}</td>
-      <td>{{ c.slug }}</td>
-      <td>{{ c.name }}</td>
-      <td>
-        <form method="post"
-              action="{{ url_for('admin.delete_category', cat_id=c.id) }}"
-              onsubmit="return confirm('Delete category? Jokes will keep their text but lose the category.');">
-          <button class="btn btn-sm btn-danger">Delete</button>
-        </form>
-      </td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<style>
+  .cat-toggle-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    padding: 0.45rem 0.25rem;
+    border-bottom: 1px solid #333;
+  }
+  .cat-toggle-row:last-of-type { border-bottom: none; }
+  a.cat-toggle {
+    color: #cfc3ff;
+    text-decoration: none;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  a.cat-toggle:hover { color: #fff; text-decoration: underline; }
+  a.cat-toggle .cat-name { color: #e6e6e6; font-weight: 600; }
+  a.cat-toggle .cat-arrow { margin-left: 0.15rem; }
+  .cat-panel { display: none; margin: 0.35rem 0 0.85rem 0; }
+  .cat-panel.is-open { display: block; }
+</style>
+
+<div class="mb-4">
+{% for c in categories %}
+  {% set nsub = c.subcategories|length %}
+  <div class="cat-block" data-cat-id="{{ c.id }}">
+    <div class="cat-toggle-row">
+      <a href="#cat-{{ c.id }}"
+         class="cat-toggle"
+         id="cat-toggle-{{ c.id }}"
+         role="button"
+         aria-expanded="false"
+         aria-controls="cat-panel-{{ c.id }}"
+         data-cat-toggle="{{ c.id }}">
+        #{{ c.id }} · <span class="cat-name">{{ c.slug }}</span>
+        · {{ nsub }} sub<span class="cat-arrow">▶️</span>
+      </a>
+      <span class="text-muted small d-none d-md-inline">{{ c.name }}</span>
+      <form method="post"
+            action="{{ url_for('admin.delete_category', cat_id=c.id) }}"
+            class="m-0 ms-auto"
+            onsubmit="return confirm('Delete category “{{ c.name }}” and all its subcategories? Jokes keep their text but lose category/subcategory.');">
+        <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+      </form>
+    </div>
+
+    <div class="cat-panel" id="cat-panel-{{ c.id }}" hidden>
+      <div class="card bg-dark border-secondary">
+        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div>
+            <strong>{{ c.name }}</strong>
+            <span class="text-muted small">#{{ c.id }} · {{ c.slug }}</span>
+            <span class="badge text-bg-secondary ms-1">{{ nsub }} sub</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <form method="post" class="row g-2 align-items-end mb-3">
+            <input type="hidden" name="action" value="edit_category">
+            <input type="hidden" name="cat_id" value="{{ c.id }}">
+            <div class="col-md-3">
+              <label class="form-label small">Slug</label>
+              <input name="slug" class="form-control form-control-sm" value="{{ c.slug }}">
+            </div>
+            <div class="col-md-5">
+              <label class="form-label small">Name</label>
+              <input name="name" class="form-control form-control-sm" value="{{ c.name }}" required>
+            </div>
+            <div class="col-md-2">
+              <button type="submit" class="btn btn-sm btn-outline-light w-100">Save category</button>
+            </div>
+          </form>
+
+          <h4 class="h6 text-muted">Subcategories</h4>
+          {% if c.subcategories %}
+          <div class="table-responsive mb-3">
+            <table class="table table-dark table-sm align-middle mb-0">
+              <thead>
+                <tr><th>ID</th><th>Slug</th><th>Name</th><th></th></tr>
+              </thead>
+              <tbody>
+              {% for s in c.subcategories|sort(attribute='name') %}
+                <tr>
+                  <td class="text-muted">{{ s.id }}</td>
+                  <td colspan="2">
+                    <form method="post" class="row g-1 align-items-center">
+                      <input type="hidden" name="action" value="edit_subcategory">
+                      <input type="hidden" name="sub_id" value="{{ s.id }}">
+                      <div class="col-md-4">
+                        <input name="slug" class="form-control form-control-sm" value="{{ s.slug }}">
+                      </div>
+                      <div class="col-md-5">
+                        <input name="name" class="form-control form-control-sm" value="{{ s.name }}" required>
+                      </div>
+                      <div class="col-md-3">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary w-100">Save</button>
+                      </div>
+                    </form>
+                  </td>
+                  <td class="text-end">
+                    <form method="post"
+                          action="{{ url_for('admin.delete_subcategory', sub_id=s.id) }}"
+                          class="m-0 d-inline"
+                          onsubmit="return confirm('Delete subcategory “{{ s.name }}”?');">
+                      <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <p class="small text-muted">No subcategories yet.</p>
+          {% endif %}
+
+          <form method="post" class="row g-2 align-items-end">
+            <input type="hidden" name="action" value="add_subcategory">
+            <input type="hidden" name="cat_id" value="{{ c.id }}">
+            <div class="col-md-3">
+              <input name="slug" class="form-control form-control-sm" placeholder="slug (optional)">
+            </div>
+            <div class="col-md-5">
+              <input name="name" class="form-control form-control-sm" placeholder="New subcategory name" required>
+            </div>
+            <div class="col-md-3">
+              <button type="submit" class="btn btn-sm btn-primary w-100">Add subcategory</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% else %}
+  <p class="text-muted">No categories yet.</p>
+{% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  function setOpen(panel, link, open) {
+    if (!panel || !link) return;
+    const arrow = link.querySelector(".cat-arrow");
+    if (open) {
+      panel.hidden = false;
+      panel.classList.add("is-open");
+      link.setAttribute("aria-expanded", "true");
+      if (arrow) arrow.textContent = "⤵️";
+    } else {
+      panel.hidden = true;
+      panel.classList.remove("is-open");
+      link.setAttribute("aria-expanded", "false");
+      if (arrow) arrow.textContent = "▶️";
+    }
+  }
+
+  document.querySelectorAll("[data-cat-toggle]").forEach(function (link) {
+    link.addEventListener("click", function (e) {
+      e.preventDefault();
+      const id = link.getAttribute("data-cat-toggle");
+      const panel = document.getElementById("cat-panel-" + id);
+      const open = !(panel && panel.classList.contains("is-open"));
+      setOpen(panel, link, open);
+      if (open && history.replaceState) {
+        history.replaceState(null, "", "#cat-" + id);
+      }
+    });
+  });
+
+  // If URL hash points at a category, open that one
+  const hash = (location.hash || "").replace(/^#cat-/, "");
+  if (hash && /^\d+$/.test(hash)) {
+    const link = document.getElementById("cat-toggle-" + hash);
+    const panel = document.getElementById("cat-panel-" + hash);
+    if (link && panel) {
+      setOpen(panel, link, true);
+      link.scrollIntoView({ block: "nearest" });
+    }
+  }
+})();
+</script>
 {% endblock %}

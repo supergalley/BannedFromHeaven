@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{% block title %}{{ thread.title }} - Forum - jokes.supergalley.com{% endblock %}
+{% block title %}{{ thread.title }} - Forum - BannedFromHeaven.com{% endblock %}
 {% block content %}
   <h2>{{ thread.title }}</h2>
+  <div id="top-of-thread"></div>
   {% if current_user.is_authenticated and (current_user.is_admin or current_user.id == thread.user_id) %}
     <div class="mb-2">
       <a href="{{ url_for('forum.edit_thread', thread_id=thread.id) }}"
@@ -20,7 +21,13 @@
   {% endif %}
   {# Thread starter post (NO reply glow here, because this is not a reply) #}
   <div class="joke-card">
-    <p style="white-space:pre-wrap;">{{ thread.body }}</p>
+    <p style="white-space:pre-wrap;">
+      {% if thread.author and (thread.author.is_admin or thread.author.is_moderator) %}
+        {{ thread.body|safe }}
+      {% else %}
+        {{ thread.body }}
+      {% endif %}
+    </p>
     <small style="color:#bfbfbf; font-size:0.85rem;">
       {% if thread.author and thread.author.username %}
         <a href="{{ url_for('main.user_profile', username=thread.author.username) }}">
@@ -57,11 +64,53 @@
     </small>
   </div>
   <h4 class="mt-3">Replies</h4>
+  <div class="mb-3 d-flex gap-2">
+    <a href="#bottom-of-thread" class="btn btn-sm btn-outline-light">
+      ↓ Oldest reply
+    </a>
+  </div>
+  {% if current_user.is_authenticated %}
+    <form method="post"
+          action="{{ url_for('forum.view_thread', thread_id=thread.id) }}"
+          class="mt-3">
+      <div class="mb-3">
+        <label class="form-label">Add reply</label>
+        <input type="hidden" name="quoted_reply_id" id="quoted_reply_id">
+        <div id="forum-quote-preview" class="quoted-comment-box d-none">
+          <div class="small text-muted mb-1">Replying with quote</div>
+          <div id="forum-quote-preview-text"></div>
+          <button type="button" class="btn btn-sm btn-outline-light mt-2" id="clear-forum-quote-btn">Clear quote</button>
+        </div>
+        <textarea name="body" class="form-control" rows="4" required></textarea>
+      </div>
+      <button class="btn btn-primary" type="submit">Post reply</button>
+    </form>
+  {% else %}
+    <p>You need to <a href="{{ url_for('auth.login') }}">log in</a> to reply.</p>
+  {% endif %}
   {% if replies %}
-    {% for reply in replies %}
+    {% for reply in replies|reverse %}
       {# Reply card: apply glow if this reply is new for the user #}
-      <div class="joke-card {% if reply.id in new_reply_ids %}glow-green{% endif %}">
-        <p style="white-space:pre-wrap;">{{ reply.body }}</p>
+      <div class="joke-card {% if reply.id in new_reply_ids %}glow-green{% endif %}" id="forum-reply-{{ reply.id }}">
+        {% if reply.quoted_reply %}
+          <div class="quoted-comment-box">
+            <div class="small text-muted mb-1">Quoted {{ reply.quoted_reply.author.username }}:</div>
+            <div style="white-space:pre-wrap;">
+              {% if reply.quoted_reply.author and (reply.quoted_reply.author.is_admin or reply.quoted_reply.author.is_moderator) %}
+                {{ reply.quoted_reply.body|safe }}
+              {% else %}
+                {{ reply.quoted_reply.body }}
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+        <p class="forum-reply-body" style="white-space:pre-wrap;">
+          {% if reply.author and (reply.author.is_admin or reply.author.is_moderator) %}
+            {{ reply.body|safe }}
+          {% else %}
+            {{ reply.body }}
+          {% endif %}
+        </p>
         <small style="color:#bfbfbf; font-size:0.8rem;">
           {{ reply.author.username }}
           {% set medals = user_medals.get(reply.author.id) %}
@@ -104,8 +153,16 @@
               <button type="submit" class="btn btn-sm btn-danger btn-xs">
                 Delete
               </button>
+              
             </form>
           </div>
+        {% endif %}
+        {% if current_user.is_authenticated %}
+          <button type="button"
+                  class="btn btn-sm btn-outline-info quote-forum-btn"
+                  data-reply-id="{{ reply.id }}">
+            Quote
+          </button>
         {% endif %}
         <!-- Reaction bar -->
         <div class="d-flex align-items-center mt-1">
@@ -151,19 +208,12 @@
   {% else %}
     <p>No replies yet.</p>
   {% endif %}
-  {% if current_user.is_authenticated %}
-    <form method="post"
-          action="{{ url_for('forum.view_thread', thread_id=thread.id) }}"
-          class="mt-3">
-      <div class="mb-3">
-        <label class="form-label">Add reply</label>
-        <textarea name="body" class="form-control" rows="4" required></textarea>
-      </div>
-      <button class="btn btn-primary" type="submit">Post reply</button>
-    </form>
-  {% else %}
-    <p>You need to <a href="{{ url_for('auth.login') }}">log in</a> to reply.</p>
-  {% endif %}
+  <div class="mt-3 d-flex gap-2">
+    <a href="#top-of-thread" class="btn btn-sm btn-outline-light">
+      ↑ Top / newest
+    </a>
+  </div>
+  <div id="bottom-of-thread"></div>
 {% endblock %}
 {% block scripts %}
   {{ super() }}

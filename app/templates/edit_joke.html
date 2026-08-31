@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Edit post - jokes.supergalley.com{% endblock %}
+{% block title %}Edit post - BannedFromHeaven.com{% endblock %}
 
 {% block content %}
 <h3 class="mt-3">Edit post</h3>
 
-<form method="post">
+<form method="post" autocomplete="off">
   <div class="mb-3">
     <label class="form-label">Type</label>
     <select name="type" class="form-select">
@@ -15,7 +15,7 @@
 
   <div class="mb-3">
     <label class="form-label">Category</label>
-    <select name="category_id" class="form-select">
+    <select name="category_id" id="category_id" class="form-select">
       <option value="">Uncategorised</option>
       {% for cat in categories %}
         <option value="{{ cat.id }}" {% if joke.category_id == cat.id %}selected{% endif %}>
@@ -23,6 +23,40 @@
         </option>
       {% endfor %}
     </select>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Subcategory</label>
+    <select name="subcategory_id" id="subcategory_id" class="form-select"
+            data-selected="{{ joke.subcategory_id or '' }}">
+      <option value="">— none —</option>
+    </select>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label" for="salute_to">Salute to</label>
+    {# Hidden decoy so password managers don't dump the site username into Salute to #}
+    <input type="text" name="username_decoy" value="" tabindex="-1" aria-hidden="true"
+           autocomplete="username"
+           style="position:absolute;left:-9999px;height:0;width:0;opacity:0;pointer-events:none;">
+    <input type="text"
+          name="salute_to"
+          id="salute_to"
+          class="form-control"
+          maxlength="32"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          data-lpignore="true"
+          data-1p-ignore="true"
+          data-form-type="other"
+          readonly
+          value="{% if request.method == 'POST' %}{{ request.form.get('salute_to', '') }}{% else %}{{ joke.salute_to or '' }}{% endif %}"
+          placeholder="Optional — member name or free text">
+    <div id="salute_suggestions"
+        class="list-group mt-1"
+        style="display:none; position:absolute; z-index:10000; max-width:420px;"></div>
+    <div class="form-text">Optional. Credit who inspired or originally shared it. Clear the box to remove.</div>
   </div>
 
   <div class="mb-3">
@@ -34,4 +68,107 @@
   <button type="submit" class="btn btn-primary">Save changes</button>
   <a href="{{ url_for('main.joke_detail', joke_id=joke.id) }}" class="btn btn-secondary">Cancel</a>
 </form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const SUBCATS_BY_CAT = {{ (subcategories_by_category or {})|tojson }};
+  (function () {
+    const catSel = document.getElementById('category_id');
+    const subSel = document.getElementById('subcategory_id');
+    if (!catSel || !subSel) return;
+    const preferred = (subSel.getAttribute('data-selected') || '').trim();
+    function fill(catId, keepId) {
+      const list = (catId && SUBCATS_BY_CAT[catId]) ? SUBCATS_BY_CAT[catId] : [];
+      subSel.innerHTML = '';
+      const none = document.createElement('option');
+      none.value = '';
+      none.textContent = list.length ? '— none —' : (catId ? '— no subcategories —' : '— pick a category first —');
+      subSel.appendChild(none);
+      list.forEach(function (s) {
+        const opt = document.createElement('option');
+        opt.value = String(s.id);
+        opt.textContent = s.name;
+        if (keepId && String(s.id) === String(keepId)) opt.selected = true;
+        subSel.appendChild(opt);
+      });
+      subSel.disabled = !catId;
+    }
+    catSel.addEventListener('change', function () { fill(catSel.value, ''); });
+    fill(catSel.value, preferred);
+  })();
+
+  const saluteInput = document.getElementById('salute_to');
+  const saluteSuggestions = document.getElementById('salute_suggestions');
+  const currentUsername = {{ current_user.username|tojson }};
+  const initialSalute = (saluteInput && saluteInput.value || '').trim();
+  let saluteTimer = null;
+  let saluteTouched = false;
+
+  if (saluteInput && saluteSuggestions) {
+    const unlockSalute = () => {
+      saluteInput.removeAttribute('readonly');
+    };
+    saluteInput.addEventListener('focus', unlockSalute);
+    saluteInput.addEventListener('pointerdown', unlockSalute);
+
+    // Only strip autofill of *your* username if it wasn't already the saved value
+    const stripAutofillSelf = () => {
+      if (saluteTouched) return;
+      const v = (saluteInput.value || '').trim();
+      if (!v || !currentUsername) return;
+      if (v.toLowerCase() !== String(currentUsername).toLowerCase()) return;
+      if (initialSalute && initialSalute.toLowerCase() === v.toLowerCase()) return;
+      saluteInput.value = '';
+    };
+    setTimeout(stripAutofillSelf, 0);
+    setTimeout(stripAutofillSelf, 250);
+    setTimeout(stripAutofillSelf, 1000);
+
+    saluteInput.addEventListener('input', () => {
+      saluteTouched = true;
+      const q = saluteInput.value.trim();
+      if (saluteTimer) clearTimeout(saluteTimer);
+      if (q.length < 3) {
+        saluteSuggestions.style.display = 'none';
+        saluteSuggestions.innerHTML = '';
+        return;
+      }
+      saluteTimer = setTimeout(async () => {
+        try {
+          const r = await fetch('/api/users/salute-search?q=' + encodeURIComponent(q));
+          const j = await r.json();
+          saluteSuggestions.innerHTML = '';
+          if (!j.ok || !j.users || !j.users.length) {
+            saluteSuggestions.style.display = 'none';
+            return;
+          }
+          j.users.forEach(username => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'list-group-item list-group-item-action';
+            btn.textContent = username;
+            btn.addEventListener('click', () => {
+              saluteTouched = true;
+              saluteInput.value = username;
+              saluteSuggestions.style.display = 'none';
+              saluteSuggestions.innerHTML = '';
+            });
+            saluteSuggestions.appendChild(btn);
+          });
+          saluteSuggestions.style.display = 'block';
+        } catch (e) {
+          saluteSuggestions.style.display = 'none';
+        }
+      }, 250);
+    });
+    document.addEventListener('click', (e) => {
+      if (!saluteInput.contains(e.target) && !saluteSuggestions.contains(e.target)) {
+        saluteSuggestions.style.display = 'none';
+      }
+    });
+  }
+});
+</script>
 {% endblock %}

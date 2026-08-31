@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Followed jokes – BannedFromHeaven.com{% endblock %}
+{% block content %}
+<style>
+  .followed-select-col {
+    display: none;
+    width: 2rem;
+    flex-shrink: 0;
+    padding-top: 0.15rem;
+  }
+  body.followed-select-mode .followed-select-col {
+    display: block;
+  }
+  #followed-nuke-btn {
+    display: none;
+  }
+  body.followed-select-mode #followed-nuke-btn.is-visible {
+    display: inline-block;
+  }
+  body.followed-select-mode #followed-delete-toggle.active {
+    border-color: #6c757d;
+    background-color: #343a40;
+    color: #adb5bd !important;
+  }
+</style>
+
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 mb-3">
+  <h1 class="h3 mb-0">Followed jokes</h1>
+  <div class="d-flex flex-wrap align-items-center gap-2">
+    {% if items %}
+    <button type="button" class="btn btn-sm btn-outline-warning" id="followed-delete-toggle">
+      Delete
+    </button>
+    <button type="submit" form="followed-bulk-form" class="btn btn-sm btn-danger"
+            id="followed-nuke-btn" title="Unfollow selected"
+            onclick="return confirm('Unfollow the selected posts?');">
+      ☢️
+    </button>
+    {% endif %}
+    {% if has_any_unseen %}
+    <form method="post" action="{{ url_for('main.user_mark_all_followed_seen') }}" class="m-0">
+      <button type="submit" class="btn btn-sm btn-outline-info"
+              onclick="return confirm('Mark all followed posts as seen?');">
+        Mark all as seen
+      </button>
+    </form>
+    {% endif %}
+    <span class="text-muted small">{{ items|length }} followed</span>
+  </div>
+</div>
+
+<p class="text-muted small">
+  Posts you follow. A <span class="text-info">cyan glow</span> means there are new comments
+  since you last opened that post.
+  Use <strong>Delete</strong> then tick posts and hit <strong>☢️</strong> to unfollow.
+</p>
+
+{% if not items %}
+  <div class="alert alert-secondary">
+    You’re not following any posts yet. Open a joke and hit <strong>Follow</strong>.
+  </div>
+{% else %}
+  <form method="post" action="{{ url_for('main.user_unfollow_selected') }}" id="followed-bulk-form">
+    <div class="list-group list-group-flush">
+      {% for item in items %}
+        {% set joke = item.joke %}
+        {% set n = item.comment_count %}
+        <div class="list-group-item bg-dark text-light border-secondary mb-2 rounded {% if item.has_unseen %}glow-cyan-follow{% endif %}">
+          <div class="d-flex gap-2 align-items-start">
+            <div class="followed-select-col">
+              <input class="form-check-input followed-check" type="checkbox"
+                     name="joke_ids" value="{{ joke.id }}"
+                     id="follow-sel-{{ joke.id }}"
+                     aria-label="Select joke {{ joke.id }}">
+            </div>
+            <a href="{{ url_for('main.joke_detail', joke_id=joke.id) }}#comments"
+               class="flex-grow-1 min-w-0 text-decoration-none text-light">
+              <div class="d-flex justify-content-between gap-2">
+                <div class="flex-grow-1 min-w-0">
+                  <div class="small text-muted mb-1">
+                    {% if joke.is_meme %}Meme
+                    {% elif joke.is_clip %}Clip
+                    {% else %}Joke{% endif %}
+                    · #{{ joke.id }}
+                    {% if joke.author %}
+                      · {{ joke.author.username }}
+                    {% endif %}
+                    {% if item.followed_at %}
+                      · followed {{ item.followed_at.strftime('%d-%m-%Y') }}
+                    {% endif %}
+                    {% if item.last_comment_at %}
+                      · last comment {{ item.last_comment_at.strftime('%d-%m-%Y %H:%M') }}
+                    {% endif %}
+                    {% if item.has_unseen %}
+                      · <span class="text-info">new</span>
+                    {% endif %}
+                  </div>
+                  <div class="text-truncate" style="max-width: 100%;">
+                    {% if joke.body and joke.body.strip() %}
+                      {{ joke.body|striptags|truncate(140, True, '…') }}
+                    {% elif joke.is_meme %}
+                      <em class="text-muted">[meme image]</em>
+                    {% elif joke.is_clip %}
+                      <em class="text-muted">[video clip]</em>
+                    {% else %}
+                      <em class="text-muted">[no text]</em>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="text-end flex-shrink-0">
+                  <span class="badge {% if item.has_unseen %}bg-info text-dark{% else %}bg-secondary{% endif %} rounded-pill">
+                    {{ n }} comment{% if n != 1 %}s{% endif %}
+                  </span>
+                  <div class="small text-muted mt-1">score {{ joke.score or 0 }}</div>
+                </div>
+              </div>
+            </a>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </form>
+
+  <script>
+  (function () {
+    const toggle = document.getElementById('followed-delete-toggle');
+    const nuke = document.getElementById('followed-nuke-btn');
+    const checks = () => Array.from(document.querySelectorAll('.followed-check'));
+    if (!toggle || !nuke) return;
+
+    function updateNuke() {
+      const any = checks().some(c => c.checked);
+      nuke.classList.toggle('is-visible', any);
+    }
+
+    toggle.addEventListener('click', function () {
+      const on = document.body.classList.toggle('followed-select-mode');
+      toggle.classList.toggle('active', on);
+      toggle.textContent = on ? 'Cancel' : 'Delete';
+      if (!on) {
+        checks().forEach(c => { c.checked = false; });
+      }
+      updateNuke();
+    });
+
+    document.getElementById('followed-bulk-form').addEventListener('change', function (e) {
+      if (e.target && e.target.classList.contains('followed-check')) {
+        updateNuke();
+      }
+    });
+  })();
+  </script>
+{% endif %}
+{% endblock %}

@@ -14,20 +14,27 @@ db = SQLAlchemy()
 login_manager = LoginManager()
 
 
-def _clean_canonical(url: str) -> str:
+def _clean_canonical(url: str, *, force_host: str | None = None) -> str:
     """
     - strips query/fragment
     - strips default ports
     - keeps trailing slash only for site root
+    - optionally rewrites host to the canonical apex (HTTPS)
     """
     p = urlsplit(url)
-    netloc = p.hostname or ""
-    if p.port and p.port not in (80, 443):
+    host = (force_host or p.hostname or "").strip().lower()
+    if host.startswith("www."):
+        host = host[4:]
+    netloc = host
+    if not force_host and p.port and p.port not in (80, 443):
         netloc = f"{netloc}:{p.port}"
     path = p.path or "/"
     if path != "/" and path.endswith("/"):
         path = path.rstrip("/")
-    return urlunsplit((p.scheme, netloc, path, "", ""))
+    scheme = "https" if force_host else (p.scheme or "https")
+    if force_host:
+        scheme = "https"
+    return urlunsplit((scheme, netloc, path, "", ""))
 
 
 def _env_bool(name: str, default=False) -> bool:
@@ -73,8 +80,32 @@ def create_app():
     # Core secrets / turnstile
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "fallback-key-change-me")
     app.config["UPLOADS_SHARED_SECRET"] = os.environ.get("UPLOADS_SHARED_SECRET", "")
+    # Optional dedicated secret for X4 duplicate scanner; falls back to UPLOADS_SHARED_SECRET
+    app.config["DUPE_WORKER_SECRET"] = os.environ.get("DUPE_WORKER_SECRET", "")
     app.config["TURNSTILE_SITE_KEY"] = os.environ.get("TURNSTILE_SITE_KEY", "")
     app.config["TURNSTILE_SECRET_KEY"] = os.environ.get("TURNSTILE_SECRET_KEY", "")
+    # Outbound mail (local postfix / private mailserver)
+    app.config["MAIL_SMTP_HOST"] = _getenv(
+        "MAIL_SMTP_HOST", default="mail.supergalley.com"
+    )
+    app.config["MAIL_SMTP_PORT"] = int(_getenv("MAIL_SMTP_PORT", default="25") or "25")
+    app.config["MAIL_FROM"] = _getenv(
+        "MAIL_FROM", default="satan@bannedfromheaven.com"
+    )
+    app.config["MAIL_FROM_NAME"] = _getenv(
+        "MAIL_FROM_NAME", default="BannedFromHeaven"
+    )
+    # Where to send "new user registered" notices (defaults to MAIL_FROM / satan@)
+    app.config["MAIL_NOTIFY_TO"] = _getenv(
+        "MAIL_NOTIFY_TO", default="satan@bannedfromheaven.com"
+    )
+    app.config["MAIL_VERIFY_CODE_MINUTES"] = int(
+        _getenv("MAIL_VERIFY_CODE_MINUTES", default="30") or "30"
+    )
+    # Verbose dump when admins delete users / manage blacklist
+    app.config["BANNING_LOG_PATH"] = _getenv(
+        "BANNING_LOG_PATH", default="/data/banning.log"
+    )
     # Cookie domains: bind to whatever host is used
     app.config["SESSION_COOKIE_DOMAIN"] = None
     app.config["REMEMBER_COOKIE_DOMAIN"] = None
@@ -86,25 +117,41 @@ def create_app():
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     # Read env (support BOTH your old compose names and the new stack names)
     domain = _getenv("DOMAIN", "domain", default="").strip()
-    CANONICAL_HOST = (os.environ.get("CANONICAL_HOST") or domain or "").strip().lower()
+    CANONICAL_HOST = (
+        os.environ.get("CANONICAL_HOST") or domain or "bannedfromheaven.com"
+    ).strip().lower()
+    if CANONICAL_HOST.startswith("www."):
+        CANONICAL_HOST = CANONICAL_HOST[4:]
+    app.config["CANONICAL_HOST"] = CANONICAL_HOST
+    app.config["PREFERRED_URL_SCHEME"] = "https"
+    # Hostnames that must 301 to the canonical apex (keep path + query).
+    # Traefik also 301s these; app-level is belt-and-braces if labels lag.
+    CANONICAL_ALIAS_HOSTS = {
+        h.strip().lower()
+        for h in (
+            os.environ.get("CANONICAL_ALIAS_HOSTS")
+            or "jokes.supergalley.com,www.bannedfromheaven.com"
+        ).split(",")
+        if h.strip()
+    }
+    CANONICAL_ALIAS_HOSTS.add(f"www.{CANONICAL_HOST}")
+    app.config["CANONICAL_ALIAS_HOSTS"] = CANONICAL_ALIAS_HOSTS
 
     @app.before_request
     def enforce_canonical_host_and_https():
         # Works because you already use ProxyFix(x_proto=1, x_host=1)
-        if not CANONICAL_HOST:
+        preferred = (app.config.get("CANONICAL_HOST") or "").strip().lower()
+        if not preferred:
             return
         host = (request.host.split(":")[0] or "").lower()
-        scheme = request.scheme.lower()
+        scheme = (request.scheme or "https").lower()
+        aliases = app.config.get("CANONICAL_ALIAS_HOSTS") or set()
 
-        # prefer non-www (change if you want www instead)
-        preferred = CANONICAL_HOST
-        if host == f"www.{preferred}":
+        # Permanent redirect (HTTP 301) — what Google wants, not 302/307.
+        if host != preferred and host in aliases:
             target = f"https://{preferred}{request.full_path}"
             return redirect(target.rstrip("?"), code=301)
-        if host != preferred:
-            # Don’t accidentally redirect random hosts if you serve multiple domains here
-            return
-        if scheme != "https":
+        if host == preferred and scheme != "https":
             target = f"https://{preferred}{request.full_path}"
             return redirect(target.rstrip("?"), code=301)
 
@@ -192,7 +239,12 @@ def create_app():
     with app.app_context():
         from . import models  # noqa: F401
 
-        db.create_all()
+        # Gunicorn multi-worker race: two processes may both try CREATE TABLE.
+        try:
+            db.create_all()
+        except Exception:
+            # Table may already exist from a sibling worker — safe to continue.
+            db.session.rollback()
         try:
             with db.engine.begin() as conn:
                 cols = {
@@ -205,17 +257,88 @@ def create_app():
                     conn.exec_driver_sql(
                         "ALTER TABLE site_settings ADD COLUMN newyear_force_enabled INTEGER DEFAULT 0"
                     )
+                if "marquee_enabled" not in cols:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE site_settings ADD COLUMN marquee_enabled "
+                        "INTEGER DEFAULT 0"
+                    )
+                if "marquee_items_json" not in cols:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE site_settings ADD COLUMN marquee_items_json TEXT"
+                    )
+                if "marquee_theme_json" not in cols:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE site_settings ADD COLUMN marquee_theme_json TEXT"
+                    )
+                qcols = {
+                    row[1]
+                    for row in conn.exec_driver_sql(
+                        "PRAGMA table_info(quarantined_jokes)"
+                    ).fetchall()
+                }
+                if qcols and "reasons" not in qcols:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE quarantined_jokes ADD COLUMN reasons VARCHAR(255)"
+                    )
+                ucols = {
+                    row[1]
+                    for row in conn.exec_driver_sql(
+                        "PRAGMA table_info(users)"
+                    ).fetchall()
+                }
+                if ucols and "duplicate_appeals_banned" not in ucols:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE users ADD COLUMN duplicate_appeals_banned "
+                        "INTEGER DEFAULT 0"
+                    )
+                # Subcategory FK columns (table itself created via create_all)
+                for table_name in ("jokes", "joke_drafts", "archived_jokes"):
+                    tcols = {
+                        row[1]
+                        for row in conn.exec_driver_sql(
+                            f"PRAGMA table_info({table_name})"
+                        ).fetchall()
+                    }
+                    if tcols and "subcategory_id" not in tcols:
+                        conn.exec_driver_sql(
+                            f"ALTER TABLE {table_name} "
+                            "ADD COLUMN subcategory_id INTEGER"
+                        )
         except Exception:
             db.session.rollback()
     # Inject unread DM count
 
     @app.context_processor
+    def inject_quarantine_reasons():
+        from .models import QUARANTINE_REASONS
+
+        return dict(QUARANTINE_REASONS=QUARANTINE_REASONS)
+
+    @app.context_processor
     def inject_seo_defaults():
-        # default canonical = current page WITHOUT query string
-        canonical_url = _clean_canonical(request.base_url)
+        # Always advertise the apex host in canonical/og:url (never alias hosts)
+        preferred = (app.config.get("CANONICAL_HOST") or "bannedfromheaven.com").strip()
+        canonical_url = _clean_canonical(request.base_url, force_host=preferred)
         # default noindex if *any* query params exist (kills duplicates)
         noindex = bool(request.args)
-        return dict(canonical_url=canonical_url, noindex=noindex)
+        og_image = f"https://{preferred}/static/android-512.png"
+        default_desc = (
+            "Sickipedia style jokes, dark humour and offensive comedy on "
+            "BannedFromHeaven.com — jokes, memes and clips."
+        )
+        default_title = (
+            "BannedFromHeaven.com – Sickipedia Style Jokes, Dark Humour"
+        )
+        return dict(
+            canonical_url=canonical_url,
+            noindex=noindex,
+            meta_description=default_desc,
+            og_url=canonical_url,
+            og_type="website",
+            og_title=default_title,
+            og_description=default_desc,
+            og_image=og_image,
+        )
 
     @app.context_processor
     def inject_unread_message_count():
@@ -229,6 +352,24 @@ def create_app():
                 deleted_by_recipient=False,
             ).count()
         return dict(unread_message_count=unread)
+
+    @app.context_processor
+    def inject_announcements_marquee():
+        """Public marquee under the logo (admin-managed)."""
+        try:
+            from .models import SiteSettings
+
+            s = SiteSettings.get()
+            enabled = bool(getattr(s, "marquee_enabled", False))
+            items = s.get_marquee_items() if enabled else []
+            theme = s.get_marquee_theme() if enabled else {}
+            return dict(
+                marquee_enabled=enabled and bool(items),
+                marquee_items=items,
+                marquee_theme=theme,
+            )
+        except Exception:
+            return dict(marquee_enabled=False, marquee_items=[], marquee_theme={})
 
     # Seasonal flags
     @app.context_processor
@@ -313,7 +454,7 @@ def create_app():
             week_rows = (
                 User.query.join(Joke, Joke.user_id == User.id)
                 .join(Vote, Vote.joke_id == Joke.id)
-                .filter(Vote.value == 1, Vote.created_at >= week_ago)
+                .filter(Vote.value > 0, Vote.created_at >= week_ago)
                 .group_by(User.id)
                 .order_by(func.sum(Vote.value).desc())
                 .with_entities(User.id, func.sum(Vote.value))
@@ -324,7 +465,7 @@ def create_app():
             day_rows = (
                 User.query.join(Joke, Joke.user_id == User.id)
                 .join(Vote, Vote.joke_id == Joke.id)
-                .filter(Vote.value == 1, Vote.created_at >= day_ago)
+                .filter(Vote.value > 0, Vote.created_at >= day_ago)
                 .group_by(User.id)
                 .order_by(func.sum(Vote.value).desc())
                 .with_entities(User.id, func.sum(Vote.value))
@@ -374,6 +515,32 @@ def create_app():
                 if last_seen is None or latest[0] > last_seen:
                     unread = True
         return dict(forum_has_unread=unread)
+
+    @app.context_processor
+    def inject_unseen_joke_comments_flag():
+        """Green glow on username menu when others commented on your posts."""
+        has_unseen = False
+        if current_user.is_authenticated:
+            try:
+                from .comment_reads import user_has_unseen_comments
+
+                has_unseen = user_has_unseen_comments(current_user.id)
+            except Exception:
+                has_unseen = False
+        return dict(has_unseen_joke_comments=has_unseen)
+
+    @app.context_processor
+    def inject_unseen_followed_comments_flag():
+        """Cyan glow when followed jokes have new comments."""
+        has_unseen = False
+        if current_user.is_authenticated:
+            try:
+                from .follows import user_has_unseen_followed_comments
+
+                has_unseen = user_has_unseen_followed_comments(current_user.id)
+            except Exception:
+                has_unseen = False
+        return dict(has_unseen_followed_comments=has_unseen)
 
     # Ban logic
     @app.before_request

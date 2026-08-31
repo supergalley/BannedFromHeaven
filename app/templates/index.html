@@ -1,32 +1,57 @@
 {% extends "base.html" %}
 {% block title %}
-  {% if mode == 'memes' %}BannedFromHeaven.com - Memes{% else %}BannedFromHeaven.com - Jokes{% endif %}
+  {% if mode == 'memes' %}Memes – Sickipedia Style Dark Humour | BannedFromHeaven.com
+  {% elif mode == 'clips' %}Clips – Sickipedia Style Dark Humour | BannedFromHeaven.com
+  {% else %}Sickipedia Style Jokes & Dark Humour | BannedFromHeaven.com{% endif %}
 {% endblock %}
 
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mt-3 mb-3">
-  <div class="text-end small text-muted mb-2">
-    PV {{ page_views }}
-  </div>
-  <div class="btn-group" role="group">
-    <a href="{{ url_for('main.index', range=time_range) }}"
-       class="btn btn-sm {% if mode == 'jokes' %}btn-primary{% else %}btn-outline-light{% endif %}">
-      Jokes
-    </a>
+{% set c24 = count_24h if count_24h is defined else {'jokes': 0, 'memes': 0, 'clips': 0} %}
+<div class="feed-toolbar mt-3 mb-3">
+  {% if page_views is not none %}
+    <span class="feed-toolbar-pv" title="Page views">PV {{ page_views }}</span>
+  {% endif %}
 
-    <a href="{{ url_for('main.memes', range=time_range) }}"
-       class="btn btn-sm {% if mode == 'memes' %}btn-primary{% else %}btn-outline-light{% endif %}">
-      Memes
+  <div class="btn-group feed-mode-group" role="group" aria-label="Feed type">
+    <a href="{{ url_for('main.index', range=time_range, sort=sort) }}"
+       class="btn feed-toolbar-btn {% if mode == 'jokes' %}btn-primary{% else %}btn-outline-light{% endif %}"
+       title="{{ c24.jokes }} new in last 24h">
+      <span class="feed-mode-label">Jokes</span><span class="feed-mode-count">{{ c24.jokes }}</span>
     </a>
-
-    <a href="{{ url_for('main.clips', range=time_range) }}"
-       class="btn btn-sm {% if mode == 'clips' %}btn-primary{% else %}btn-outline-light{% endif %}">
-      Clips
+    <a href="{{ url_for('main.memes', range=time_range, sort=sort) }}"
+       class="btn feed-toolbar-btn {% if mode == 'memes' %}btn-primary{% else %}btn-outline-light{% endif %}"
+       title="{{ c24.memes }} new in last 24h">
+      <span class="feed-mode-label">Memes</span><span class="feed-mode-count">{{ c24.memes }}</span>
+    </a>
+    <a href="{{ url_for('main.clips', range=time_range, sort=sort) }}"
+       class="btn feed-toolbar-btn {% if mode == 'clips' %}btn-primary{% else %}btn-outline-light{% endif %}"
+       title="{{ c24.clips }} new in last 24h">
+      <span class="feed-mode-label">Clips</span><span class="feed-mode-count">{{ c24.clips }}</span>
     </a>
   </div>
-  <form method="get" class="d-flex">
-    <select name="range" class="form-select form-select-sm me-2" data-sticky-range="feed_range"> <!--onchange="this.form.submit()"> -->
+
+  <span class="feed-toolbar-sep" aria-hidden="true">|</span>
+
+  <form method="get" class="feed-controls-form" id="feed-controls">
+    {% if request.args.get('category') %}
+      <input type="hidden" name="category" value="{{ request.args.get('category') }}">
+    {% endif %}
+    <div class="btn-group feed-sort-group" role="group" aria-label="Sort order">
+      <input type="radio" class="btn-check" name="sort" id="feed-sort-best" value="best"
+             autocomplete="off" {% if sort == 'best' %}checked{% endif %}
+             data-sticky-sort="feed_sort">
+      <label class="btn feed-toolbar-btn btn-outline-light" for="feed-sort-best">Best</label>
+
+      <input type="radio" class="btn-check" name="sort" id="feed-sort-newest" value="newest"
+             autocomplete="off" {% if sort == 'newest' %}checked{% endif %}
+             data-sticky-sort="feed_sort">
+      <label class="btn feed-toolbar-btn btn-outline-light" for="feed-sort-newest">Newest</label>
+    </div>
+
+    <span class="feed-toolbar-sep" aria-hidden="true">|</span>
+
+    <select name="range" class="form-select feed-range-select" data-sticky-range="feed_range">
       <option value="today" {% if time_range == 'today' %}selected{% endif %}>Last 24h</option>
       <option value="week"  {% if time_range == 'week' %}selected{% endif %}>This week</option>
       <option value="month" {% if time_range == 'month' %}selected{% endif %}>This month</option>
@@ -34,6 +59,20 @@
     </select>
   </form>
 </div>
+
+{% if mode == 'clips' and clips_effective_range is defined and clips_effective_range %}
+  {% set _eff_label = {
+    'today': 'last 24 hours',
+    'week': 'this week',
+    'month': 'this month',
+    'all': 'all time'
+  } %}
+  <p class="small text-muted mb-2">
+    Few clips in your selected range — temporarily showing
+    <strong>{{ _eff_label.get(clips_effective_range, clips_effective_range) }}</strong>
+    (your range setting is unchanged for Jokes / Memes).
+  </p>
+{% endif %}
 
 {% if settings and settings.pinned_enabled %}
   <div class="joke-card" style="border:1px solid #9f7bff;">
@@ -46,26 +85,65 @@
   {% for joke in jokes %}
     <div class="joke-card d-flex">
       <div class="me-3 text-center vote-column">
-        {% if current_user.is_authenticated %}
+        {% set my_vote = vote_map.get(joke.id) if vote_map is defined else none %}
+        {% if current_user.is_authenticated and current_user.id == joke.user_id %}
+          <div class="vote-disabled" title="Your auto +1 is already applied — you can't vote on your own joke">🔥</div>
+        {% elif current_user.is_authenticated %}
+          {% set double_ok = joke_allows_double_vote(joke) %}
           <div
-            class="vote-btn {% if vote_map is defined and vote_map.get(joke.id) == 1 %}voted-up{% endif %}"
+            class="vote-btn {% if my_vote == 1 %}voted-up{% elif my_vote == 2 %}voted-up-2{% endif %}"
             data-id="{{ joke.id }}"
-            data-dir="up">
-            ⬆
+            data-dir="up"
+            data-double="{{ 1 if double_ok else 0 }}"
+            title="{{ 'Tap for 🔥 · hold 2–4s for 💥' if double_ok else 'Upvote 🔥' }}">
+            {% if my_vote == 2 %}💥{% else %}🔥{% endif %}
           </div>
         {% else %}
-          <div>⬆</div>
+          <div>🔥</div>
         {% endif %}
         <div id="score-{{ joke.id }}">{{ joke.score }}</div>
-        {% if current_user.is_authenticated %}
+        {% if current_user.is_authenticated and current_user.id == joke.user_id %}
+          <div class="vote-disabled" title="You can't vote on your own joke">💩</div>
+        {% elif current_user.is_authenticated and not current_user.needs_moderator and not current_user.is_banned() %}
           <div
-            class="vote-btn {% if vote_map is defined and vote_map.get(joke.id) == -1 %}voted-down{% endif %}"
+            class="vote-btn {% if my_vote == -1 %}voted-down{% endif %}"
             data-id="{{ joke.id }}"
             data-dir="down">
-            ⬇
+            💩
           </div>
         {% else %}
-          <div>⬇</div>
+          <div title="{% if current_user.is_authenticated and current_user.needs_moderator %}Accounts under review cannot downvote{% elif current_user.is_authenticated and current_user.is_banned() %}Banned users cannot downvote{% endif %}">💩</div>
+        {% endif %}
+        {% set t = (vote_tallies.get(joke.id) if vote_tallies is defined and vote_tallies else none) or {'super': 0, 'up': 0, 'down': 0} %}
+        <div class="vote-stats-wrap" id="vote-tally-{{ joke.id }}">
+          <button type="button" class="vote-stats-btn" title="Vote breakdown" aria-label="Show vote breakdown" aria-expanded="false">🗳️</button>
+          <div class="vote-stats-card" role="dialog" aria-label="Vote breakdown">
+            <div class="vote-stats-card-title">Votes</div>
+            <div class="vote-tally vote-tally-super">
+              <span class="vote-tally-icon">💥</span>
+              <span class="vote-tally-n" data-kind="super">{{ t.super }}</span>
+              <span class="vote-tally-label">super</span>
+            </div>
+            <div class="vote-tally vote-tally-up">
+              <span class="vote-tally-icon">🔥</span>
+              <span class="vote-tally-n" data-kind="up">{{ t.up }}</span>
+              <span class="vote-tally-label">up</span>
+            </div>
+            <div class="vote-tally vote-tally-down">
+              <span class="vote-tally-icon">💩</span>
+              <span class="vote-tally-n" data-kind="down">{{ t.down }}</span>
+              <span class="vote-tally-label">down</span>
+            </div>
+          </div>
+        </div>
+        {% if current_user.is_authenticated and (current_user.is_admin or current_user.is_moderator) %}
+        <div class="vote-stats-wrap vote-voters-wrap" data-joke-id="{{ joke.id }}">
+          <button type="button" class="vote-stats-btn vote-voters-btn" title="Who voted (mods)" aria-label="Show who voted" aria-expanded="false">🛂</button>
+          <div class="vote-stats-card vote-voters-card" role="dialog" aria-label="Voters">
+            <div class="vote-stats-card-title">Voters</div>
+            <div class="vote-voters-list"><div class="vote-voters-loading">Tap to load…</div></div>
+          </div>
+        </div>
         {% endif %}
       </div>
 
@@ -94,14 +172,34 @@
               ▶
             </button>
           </div>
+          <div class="mb-2">
+            <a href="{{ url_for('main.clip_download', filename=joke.video_filename) }}"
+               class="btn btn-sm btn-outline-light clip-download-btn"
+               title="Download clip"
+               data-download-url="{{ url_for('main.clip_download', filename=joke.video_filename) }}"
+               data-download-name="{{ joke.video_filename|e }}"
+               download="{{ joke.video_filename|e }}">
+              💾 Download
+            </a>
+          </div>
         {% endif %}
-
-
+        
         {% if joke.body %}
-          <p class="mt-1 mb-1" style="white-space:pre-wrap;">{{ joke.body.lstrip() }}</p>
+          <p class="mt-1 mb-1" style="white-space:pre-wrap;">{% if joke.author and (joke.author.is_admin or joke.author.is_moderator) %}{{ joke.body.lstrip()|safe }}{% else %}{{ joke.body.lstrip() }}{% endif %}</p>
+          <button type="button"
+            class="btn btn-sm btn-outline-light copy-joke-btn"
+            data-copy-text="{{ joke.body|e }}"
+            title="Copy joke">
+              📋
+          </button>
+        {% endif %}
+        {% if joke.salute_to %}
+          <div class="small mt-1" style="color:#ffb3e6;">
+            🫡 <b><i>Salute to {{ joke.salute_to }}</i></b>
+          </div>
         {% endif %}
         {% if joke.category %}
-          <a href="{{ url_for('main.memes' if mode == 'memes' else 'main.index') }}?category={{ joke.category.name }}" style="
+          <a href="{{ url_for('main.memes' if mode == 'memes' else ('main.clips' if mode == 'clips' else 'main.index')) }}?category={{ joke.category.name|urlencode }}" style="
             display:inline-block;
             background:#9f7bff33;
             color:#9f7bff;
@@ -110,9 +208,17 @@
             border:1px solid #9f7bff;
             border-radius:6px;
             font-size:0.8rem;
+            text-decoration:none;
           ">
-            {{ joke.category.name }}
+            {{ joke.category.name }}{% if joke.subcategory %} › {{ joke.subcategory.name }}{% endif %}
           </a>
+          {% if joke.subcategory %}
+          <a href="{{ url_for('main.memes' if mode == 'memes' else ('main.clips' if mode == 'clips' else 'main.index')) }}?category={{ joke.category.name|urlencode }}&amp;subcategory={{ joke.subcategory.name|urlencode }}"
+             class="ms-1"
+             style="display:inline-block; background:#333; color:#ccc; padding:3px 8px; margin-top:5px; border:1px solid #555; border-radius:6px; font-size:0.75rem; text-decoration:none;">
+            {{ joke.subcategory.name }}
+          </a>
+          {% endif %}
         {% endif %}
         <p class="mt-2 mb-0 small" style="color:#bfbfbf;">
           <a href="{{ url_for('main.joke_detail', joke_id=joke.id) }}"
@@ -123,18 +229,12 @@
         {% if current_user.is_authenticated
               and (current_user.is_admin or current_user.is_moderator)
               and not joke.is_quarantined %}
-          <form method="post"
-                action="{{ url_for('main.quarantine_joke', joke_id=joke.id) }}"
-                class="d-inline">
-            <button type="submit"
-                    class="btn btn-sm btn-outline-warning mt-1"
-                    style="font-size: 0.75rem; padding: 2px 8px;"
-                    onclick="return confirm(
-                      'Send this joke to quarantine for admin review? It will disappear from public lists.'
-                    );">
-              Quarantine
-            </button>
-          </form>
+          <button type="button"
+                  class="btn btn-sm btn-outline-warning mt-1 quarantine-open-btn"
+                  style="font-size: 0.75rem; padding: 2px 8px;"
+                  data-joke-id="{{ joke.id }}">
+            Quarantine
+          </button>
         {% endif %}
         <small style="color:#bfbfbf; font-size:0.85rem;">
           <a href="{{ url_for('main.user_profile', username=joke.author.username) }}">
@@ -172,10 +272,43 @@
       </div>
     </div>
   {% endfor %}
+
+  {% if has_more %}
+    {% set next_show = show + page_size %}
+    {% if mode == 'memes' %}
+      {% if category_name %}
+        {% set more_url = url_for('main.memes', range=time_range, sort=sort, show=next_show, category=category_name) %}
+      {% else %}
+        {% set more_url = url_for('main.memes', range=time_range, sort=sort, show=next_show) %}
+      {% endif %}
+    {% elif mode == 'clips' %}
+      {% if category_name %}
+        {% set more_url = url_for('main.clips', range=time_range, sort=sort, show=next_show, category=category_name) %}
+      {% else %}
+        {% set more_url = url_for('main.clips', range=time_range, sort=sort, show=next_show) %}
+      {% endif %}
+    {% else %}
+      {% if category_name %}
+        {% set more_url = url_for('main.index', range=time_range, sort=sort, show=next_show, category=category_name) %}
+      {% else %}
+        {% set more_url = url_for('main.index', range=time_range, sort=sort, show=next_show) %}
+      {% endif %}
+    {% endif %}
+    <div class="text-center my-4">
+      <a href="{{ more_url }}" class="btn btn-outline-light btn-lg px-5" id="feed-more-btn">
+        More...
+      </a>
+      <div class="small text-muted mt-2">Showing {{ jokes|length }} · load next {{ page_size }}</div>
+    </div>
+  {% elif jokes %}
+    <div class="text-center my-3 small text-muted">End of list ({{ jokes|length }} shown)</div>
+  {% endif %}
 {% else %}
   <p>
     {% if mode == 'memes' %}
       No memes in this time range. Tragic.
+    {% elif mode == 'clips' %}
+      No clips in this time range. Tragic.
     {% else %}
       No jokes in this time range. Tragic.
     {% endif %}
@@ -186,70 +319,6 @@
 
 {% block scripts %}
 <script>
-function updateVoteGlow(jokeId, direction) {
-  const upBtn = document.querySelector(`.vote-btn[data-id="${jokeId}"][data-dir="up"]`);
-  const downBtn = document.querySelector(`.vote-btn[data-id="${jokeId}"][data-dir="down"]`);
-
-  if (!upBtn || !downBtn) return;
-
-  const upActive = upBtn.classList.contains('voted-up');
-  const downActive = downBtn.classList.contains('voted-down');
-
-  let newUp = upActive;
-  let newDown = downActive;
-
-  if (direction === 'up') {
-    if (upActive) {
-      // UPVOTE TRUE, Tap Up → clear both
-      newUp = false;
-      newDown = false;
-    } else {
-      // UPVOTE FALSE (neutral or down), Tap Up → Up = TRUE, Down = FALSE
-      newUp = true;
-      newDown = false;
-    }
-  } else if (direction === 'down') {
-    if (downActive) {
-      // DOWNVOTE TRUE, Tap Down → clear both
-      newUp = false;
-      newDown = false;
-    } else {
-      // DOWNVOTE FALSE (neutral or up), Tap Down → Down = TRUE, Up = FALSE
-      newUp = false;
-      newDown = true;
-    }
-  }
-
-  upBtn.classList.toggle('voted-up', newUp);
-  downBtn.classList.toggle('voted-down', newDown);
-}
-
-document.querySelectorAll('.vote-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const id = btn.dataset.id;
-    const direction = btn.dataset.dir;
-
-    fetch(`/api/jokes/${id}/vote`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({direction})
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.score !== undefined) {
-        const scoreEl = document.getElementById(`score-${id}`);
-        if (scoreEl) {
-          scoreEl.innerText = data.score;
-        }
-      }
-
-      // Ignore what the server *thinks* and update UI based on click + current classes
-      updateVoteGlow(id, direction);
-    })
-    .catch(err => console.error(err));
-  });
-});
-
 // Click-to-load clips: no <video src> on initial page load (saves your server from death by scrolling).
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.clip-load-btn');
@@ -265,8 +334,9 @@ document.addEventListener('click', (e) => {
 
   const video = document.createElement('video');
   video.controls = true;
-  video.preload = 'none'; // fetch only once user asked for it
-  video.playsInLine = true;
+  video.preload = 'auto';
+  video.autoplay = true;
+  video.playsInline = true;
   video.style.width = '100%';
   video.style.maxHeight = '420px';
   if (poster) video.poster = poster;
@@ -280,8 +350,10 @@ document.addEventListener('click', (e) => {
   shell.appendChild(video);
   shell.dataset.loaded = '1';
 
-  // Try autoplay after click; if the browser blocks it, user can hit play.
-  video.play().catch(() => {});
+  video.load();
+  video.addEventListener('canplay', () => {
+    video.play().catch(() => {});
+  }, { once: true });
 });
 
 </script>

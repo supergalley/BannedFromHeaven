@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Admin - jokes.supergalley.com{% endblock %}
+{% block title %}Admin - BannedFromHeaven.com{% endblock %}
 
 {% block content %}
 <h2>Admin dashboard</h2>
@@ -7,11 +7,24 @@
 
 <ul>
   <li><a href="{{ url_for('admin.users') }}">Manage users</a></li><br>
+  <li><a href="{{ url_for('admin.blacklist') }}">Blacklist (email / IP / username)</a></li><br>
   <li><a href="{{ url_for('admin.jokes') }}">Manage jokes</a></li><br>
   <li><a href="{{ url_for('admin.forum_threads') }}">Manage forum threads</a></li><br>
   <li><a href="{{ url_for('admin.categories') }}">Manage categories</a></li><br>
+  <li>
+    <a href="{{ url_for('admin.category_mod_suggestions') }}">
+      Suggested Category Mods{% if pending_cat_mods %} ({{ pending_cat_mods }} pending){% endif %}
+    </a>
+  </li><br>
   <li><a href="{{ url_for('admin.settings') }}">Site settings / pinned post</a></li><br>
-  <li><a href="{{ url_for('admin.quarantine_list') }}">Quarantined jokes</a></li>
+  <li><a href="{{ url_for('admin.announcements_marquee') }}">Announcements Marquee</a></li><br>
+  <li><a href="{{ url_for('main.moderation_duplicates') }}#dupe-log">De-duplication log</a> (on Duplicates Review)</li><br>
+  <li><a href="{{ url_for('admin.quarantine_list') }}">Quarantined jokes</a></li><br>
+  <li>
+    <a href="{{ url_for('admin.appeals') }}">
+      Duplicate appeals{% if pending_appeals %} ({{ pending_appeals }} pending){% endif %}
+    </a>
+  </li><br>
   <li><a href="{{ url_for('admin.admin_login_audit') }}" class="btn btn-outline-info btn-sm mt-2">Login Audit</a></li>
 </ul>
 <hr>

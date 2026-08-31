@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Suggested Category Mods – Admin{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 mb-3">
+  <h1 class="h3 mb-0">Suggested Category Mods</h1>
+  <a class="btn btn-sm btn-outline-light" href="{{ url_for('admin.dashboard') }}">← Admin</a>
+</div>
+
+<p class="text-muted small">
+  Moderator proposals to add or remove categories / subcategories.
+  <strong>Approve</strong> applies the change immediately; <strong>Reject</strong> discards it.
+  Pending: {{ pending_count }}.
+</p>
+
+<div class="mb-3 d-flex flex-wrap gap-2">
+  {% for st, label in [('pending','Pending'), ('approved','Approved'), ('rejected','Rejected'), ('all','All')] %}
+  <a class="btn btn-sm {% if status == st %}btn-light{% else %}btn-outline-light{% endif %}"
+     href="{{ url_for('admin.category_mod_suggestions', status=st) }}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+{% if not items %}
+<div class="alert alert-secondary">No suggestions in this view.</div>
+{% endif %}
+
+{% for s in items %}
+<div class="card bg-dark border-secondary mb-3">
+  <div class="card-header d-flex flex-wrap justify-content-between gap-2">
+    <div>
+      <span class="badge text-bg-secondary">#{{ s.id }}</span>
+      <span class="badge {% if s.action == 'add' %}text-bg-success{% else %}text-bg-danger{% endif %}">
+        {{ s.action }}
+      </span>
+      <span class="badge text-bg-dark border">{{ s.target_kind }}</span>
+      <span class="badge
+        {% if s.status == 'pending' %}text-bg-warning text-dark
+        {% elif s.status == 'approved' %}text-bg-success
+        {% else %}text-bg-secondary{% endif %}">
+        {{ s.status }}
+      </span>
+    </div>
+    <div class="small text-muted">
+      by <strong>{{ s.suggested_by_username }}</strong>
+      · {{ s.created_at.strftime('%Y-%m-%d %H:%M') if s.created_at else '?' }} UTC
+    </div>
+  </div>
+  <div class="card-body">
+    <p class="mb-2">
+      {% if s.action == 'add' and s.target_kind == 'category' %}
+        Add new category: <strong>{{ s.proposed_name }}</strong>
+      {% elif s.action == 'add' and s.target_kind == 'subcategory' %}
+        Add subcategory: <strong>{{ s.proposed_name }}</strong>
+        under <em>{{ s.parent_category_name or ('category #' ~ s.parent_category_id) }}</em>
+      {% elif s.action == 'remove' and s.target_kind == 'category' %}
+        Remove category: <strong>{{ s.category_name or ('#' ~ s.category_id) }}</strong>
+        <span class="text-muted small">(and all subcategories; jokes lose this category)</span>
+      {% elif s.action == 'remove' and s.target_kind == 'subcategory' %}
+        Remove subcategory: <strong>{{ s.subcategory_name or ('#' ~ s.subcategory_id) }}</strong>
+        from <em>{{ s.category_name or ('#' ~ s.category_id) }}</em>
+      {% else %}
+        {{ s.action }} / {{ s.target_kind }}
+      {% endif %}
+    </p>
+    {% if s.note %}
+    <p class="small text-muted mb-2">Note: {{ s.note }}</p>
+    {% endif %}
+    {% if s.status != 'pending' %}
+    <p class="small text-muted mb-0">
+      Reviewed
+      {% if s.reviewed_at %}{{ s.reviewed_at.strftime('%Y-%m-%d %H:%M') }} UTC{% endif %}
+      {% if s.review_note %}· {{ s.review_note }}{% endif %}
+    </p>
+    {% else %}
+    <div class="d-flex flex-wrap gap-2 mt-2">
+      <form method="post"
+            action="{{ url_for('admin.category_mod_suggestion_approve', sug_id=s.id) }}"
+            class="m-0"
+            onsubmit="return confirm('Approve and apply this change?');">
+        <button type="submit" class="btn btn-success btn-sm">Approve</button>
+      </form>
+      <form method="post"
+            action="{{ url_for('admin.category_mod_suggestion_reject', sug_id=s.id) }}"
+            class="m-0 d-flex flex-wrap gap-2 align-items-center">
+        <input type="text" name="review_note" class="form-control form-control-sm"
+               style="max-width:220px;" placeholder="Reject reason (optional)" maxlength="255">
+        <button type="submit" class="btn btn-outline-danger btn-sm"
+                onclick="return confirm('Reject this suggestion?');">Reject</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

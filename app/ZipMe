@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+rm -f ./BFH_latest.zip
+zip -q ./BFH_latest.zip ./*.py ./templates/*.html
+echo "Created BFH_latest.zip"

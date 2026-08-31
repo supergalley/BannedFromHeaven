@@ -74,43 +74,40 @@ def _call_finalize(payload: Dict[str, Any]) -> Tuple[int, str]:
 def tusd_hook():
     payload = request.get_json(silent=True) or {}
     upload_id, md = _extract_upload(payload)
-
     if not upload_id:
         return jsonify(ok=False, error="Missing upload id"), 400
-
     joke_type = (md.get("joke_type") or "").strip().lower()
     if joke_type not in ("meme", "clip"):
         return jsonify(ok=False, error="Invalid joke_type", got=joke_type, md=md), 400
-
     token = (md.get("token") or "").strip()
     if not token:
         return jsonify(ok=False, error="Missing token"), 400
-
     category_id = (md.get("category_id") or "").strip()
+    subcategory_id = (md.get("subcategory_id") or "").strip()
     body_text = (md.get("body") or "").strip()
-
+    salute_to = (md.get("salute_to") or "").strip()
+    as_draft = (md.get("as_draft") or "").strip().lower() in ("1", "true", "yes", "on")
+    draft_id = (md.get("draft_id") or "").strip()
     tusd_dir = (os.environ.get("TUSD_DIR") or "/tusd").rstrip("/")
     upload_path = os.path.join(tusd_dir, upload_id)
-
     if not os.path.exists(upload_path):
         return jsonify(ok=False, error=f"Upload file not found: {upload_id}"), 404
-
     original_filename = (md.get("filename") or "upload.bin").strip() or "upload.bin"
     content_type = (md.get("content_type") or "").strip() or None
-
     with open(upload_path, "rb") as f:
         fs = FileStorage(
             stream=f, filename=original_filename, content_type=content_type
         )
-
         if joke_type == "meme":
             image_filename = process_meme_image(fs)
             finalize_payload = {
                 "token": token,
                 "joke_type": "meme",
                 "category_id": category_id,
+                "subcategory_id": subcategory_id,
                 "body": body_text,
                 "image_filename": image_filename,
+                "salute_to": salute_to,
             }
         else:
             video_filename, video_thumb, video_duration, video_size = (
@@ -120,12 +117,18 @@ def tusd_hook():
                 "token": token,
                 "joke_type": "clip",
                 "category_id": category_id,
+                "subcategory_id": subcategory_id,
                 "body": body_text,
+                "salute_to": salute_to,
                 "video_filename": video_filename,
                 "video_thumb": video_thumb,
                 "video_duration": video_duration,
                 "video_size": video_size,
             }
+        if as_draft:
+            finalize_payload["as_draft"] = "1"
+        if draft_id:
+            finalize_payload["draft_id"] = draft_id
 
     code, resp_text = _call_finalize(finalize_payload)
     if code < 200 or code >= 300:

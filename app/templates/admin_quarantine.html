@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Quarantined Jokes - Admin - jokes.supergalley.com{% endblock %}
+{% block title %}Quarantined Jokes - Admin - BannedFromHeaven.com{% endblock %}
 
 {% block content %}
 <h2>Quarantined Jokes</h2>
@@ -11,6 +11,7 @@
         <th>ID</th>
         <th>Score</th>
         <th>Snippet</th>
+        <th>Reason(s)</th>
         <th>Quarantined by</th>
         <th>When</th>
         <th>Actions</th>
@@ -25,9 +26,20 @@
         <td style="max-width: 300px;">
           {{ (joke.title or joke.body[:120]) }}
         </td>
+        <td style="max-width: 220px;">
+          {% set reasons = q.reasons_list() if q.reasons_list is defined else [] %}
+          {% if reasons %}
+            {% for r in reasons %}
+              <span class="badge text-bg-warning text-dark me-1 mb-1">{{ r }}</span>
+            {% endfor %}
+          {% elif q.reasons %}
+            <span class="badge text-bg-warning text-dark">{{ q.reasons }}</span>
+          {% else %}
+            <span class="text-muted small">—</span>
+          {% endif %}
+        </td>
         <td>
           {% if q.moderator %}
-            {{ q.moderator.username }}
             {{ q.moderator.username }}
             {% set medals = user_medals.get(q.moderator.id) %}
             {% if medals %}

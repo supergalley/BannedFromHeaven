@@ -1,6 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Conversation - jokes.supergalley.com{% endblock %}
+{% block title %}Conversation - BannedFromHeaven.com{% endblock %}
 {% block content %}
+
+<hr>
+<h5>Reply</h5>
+<form method="post" class="mt-2">
+  <div class="mb-2">
+    <input type="text"
+           name="subject"
+           class="form-control form-control-sm"
+           placeholder="Subject (optional)">
+  </div>
+  <div class="mb-2">
+    <textarea name="body"
+              class="form-control"
+              rows="3"
+              placeholder="Type your reply"></textarea>
+  </div>
+  <button type="submit" class="btn btn-primary btn-sm">Send reply</button>
+  <a href="{{ url_for('main.inbox') }}" class="btn btn-secondary btn-sm ms-2">
+    Back to inbox
+  </a>
+</form>
+
 <h2>Conversation with
   <a href="{{ url_for('main.user_profile', username=other_user.username) }}">
     {{ other_user.username }}
@@ -103,26 +125,6 @@
     <p>No messages in this conversation yet.</p>
   {% endif %}
 </div>
-<hr>
-<h5>Reply</h5>
-<form method="post" class="mt-2">
-  <div class="mb-2">
-    <input type="text"
-           name="subject"
-           class="form-control form-control-sm"
-           placeholder="Subject (optional)">
-  </div>
-  <div class="mb-2">
-    <textarea name="body"
-              class="form-control"
-              rows="3"
-              placeholder="Type your reply"></textarea>
-  </div>
-  <button type="submit" class="btn btn-primary btn-sm">Send reply</button>
-  <a href="{{ url_for('main.inbox') }}" class="btn btn-secondary btn-sm ms-2">
-    Back to inbox
-  </a>
-</form>
 <br><br>
 {% if is_blocked %}
 <form method="post"

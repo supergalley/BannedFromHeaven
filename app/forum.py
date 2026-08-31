@@ -79,28 +79,31 @@ def view_thread(thread_id):
         if not body:
             flash("Reply cannot be empty.", "danger")
         else:
+            quoted_reply_id = request.form.get("quoted_reply_id", type=int)
+            quoted_reply = None
+            if quoted_reply_id:
+                quoted_reply = ForumReply.query.filter_by(
+                    id=quoted_reply_id,
+                    thread_id=thread.id,
+                ).first()
             reply = ForumReply(
                 body=body,
                 user_id=current_user.id,
                 thread_id=thread.id,
+                quoted_reply_id=quoted_reply.id if quoted_reply else None,
             )
             db.session.add(reply)
-
             # Bump thread activity so it glows in thread list
             thread.last_activity_at = datetime.utcnow()
-
             db.session.commit()
             flash("Reply posted.", "success")
-
         return redirect(url_for("forum.view_thread", thread_id=thread.id))
-
     # -------------------- Load replies --------------------
     replies = (
         ForumReply.query.filter_by(thread_id=thread.id)
         .order_by(ForumReply.created_at.asc())
         .all()
     )
-
     # -------------------- Reactions --------------------
     reply_ids = [r.id for r in replies]
     reaction_summary = {}  # {reply_id: {reaction_type: count}}
@@ -209,6 +212,7 @@ def delete_thread(thread_id):
 
     # delete replies first so FK constraints don't cry
     ForumReply.query.filter_by(thread_id=thread.id).delete(synchronize_session=False)
+    ForumThreadRead.query.filter_by(thread_id=thread.id).delete(synchronize_session=False)
     db.session.delete(thread)
     db.session.commit()
 

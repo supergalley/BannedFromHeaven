@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ profile_user.username }} - Profile - jokes.supergalley.com{% endblock %}
+{% block title %}{{ profile_user.username }} - Profile - BannedFromHeaven.com{% endblock %}
 
 {% block content %}
 <h2>
@@ -83,40 +83,53 @@
     {% endif %}
   </div>
 </div>
-<h3>
-  Jokes by {{ profile_user.username }}
-  {% set medals = user_medals.get(profile_user.id) %}
-  {% if medals %}
-    {% if medals.today %}
-      <span class="medal-badge-today"
-            title="{{ medals.today.tooltip }}"
-            aria-label="{{ medals.today.tooltip }}">
-        {{ medals.today.icon }}
-      </span>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+  <h3 class="mb-0">
+    Posts by {{ profile_user.username }}
+    {% set medals = user_medals.get(profile_user.id) %}
+    {% if medals %}
+      {% if medals.today %}
+        <span class="medal-badge-today"
+              title="{{ medals.today.tooltip }}"
+              aria-label="{{ medals.today.tooltip }}">
+          {{ medals.today.icon }}
+        </span>
+      {% endif %}
+      {% if medals.week %}
+        <span class="medal-badge-week"
+              title="{{ medals.week.tooltip }}"
+              aria-label="{{ medals.week.tooltip }}">
+          {{ medals.week.icon }}
+        </span>
+      {% endif %}
+      {% if medals.all_time %}
+        <span class="medal-badge-alltime"
+              title="{{ medals.all_time.tooltip }}"
+              aria-label="{{ medals.all_time.tooltip }}">
+          {{ medals.all_time.icon }}
+        </span>
+      {% endif %}
     {% endif %}
-    {% if medals.week %}
-      <span class="medal-badge-week"
-            title="{{ medals.week.tooltip }}"
-            aria-label="{{ medals.week.tooltip }}">
-        {{ medals.week.icon }}
-      </span>
-    {% endif %}
-    {% if medals.all_time %}
-      <span class="medal-badge-alltime"
-            title="{{ medals.all_time.tooltip }}"
-            aria-label="{{ medals.all_time.tooltip }}">
-        {{ medals.all_time.icon }}
-      </span>
-    {% endif %}
-  {% endif %}
-</h3>
+  </h3>
+  <form method="get" class="d-flex align-items-center" id="profile-sort-form">
+    <div class="btn-group" role="group" aria-label="Sort posts">
+      <input type="radio" class="btn-check" name="sort" id="profile-sort-highest" value="highest"
+             autocomplete="off" {% if sort == 'highest' %}checked{% endif %}>
+      <label class="btn btn-sm btn-outline-light" for="profile-sort-highest">Highest</label>
+
+      <input type="radio" class="btn-check" name="sort" id="profile-sort-newest" value="newest"
+             autocomplete="off" {% if sort == 'newest' %}checked{% endif %}>
+      <label class="btn btn-sm btn-outline-light" for="profile-sort-newest">Newest</label>
+    </div>
+  </form>
+</div>
 {% if jokes %}
   <table class="table table-dark table-striped table-sm align-middle">
     <thead>
       <tr>
         <th scope="col">Score</th>
         <th scope="col">Posted</th>
-        <th scope="col">Joke</th>
+        <th scope="col">Post</th>
       </tr>
     </thead>
     <tbody>
@@ -125,16 +138,34 @@
           <td>{{ joke.score }}</td>
           <td>{{ joke.created_at.strftime('%d-%m-%Y %H:%M') }}</td>
           <td>
+            {# Link label: real joke text if present; otherwise type label.
+               Memes/clips often have empty body and a placeholder title ("Meme"/"Clip"). #}
+            {% set body_text = (joke.body or '').strip() %}
+            {% if body_text %}
+              {% set link_text = body_text[:80] %}
+            {% elif joke.is_meme %}
+              {% set link_text = '[Meme]' %}
+            {% elif joke.is_clip %}
+              {% set link_text = '[Clip]' %}
+            {% else %}
+              {% set title_text = (joke.title or '').strip() %}
+              {% set link_text = title_text[:80] if title_text else '[Post]' %}
+            {% endif %}
             <a href="{{ url_for('main.joke_detail', joke_id=joke.id) }}">
-              {{ (joke.title or joke.body[:80]) }}
+              {{ link_text }}
             </a>
+            {% if joke.is_meme %}
+              <span class="badge text-bg-secondary ms-1">meme</span>
+            {% elif joke.is_clip %}
+              <span class="badge text-bg-secondary ms-1">clip</span>
+            {% endif %}
           </td>
         </tr>
       {% endfor %}
     </tbody>
   </table>
 {% else %}
-  <p>No jokes posted yet.</p>
+  <p>No posts yet.</p>
 {% endif %}
 
 {% if current_user.is_authenticated and (current_user.is_admin or current_user.is_moderator) and current_user.id != profile_user.id and not profile_user.is_admin %}
@@ -148,5 +179,28 @@
 </form>
 {% endif %}
 
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("profile-sort-form");
+  if (!form) return;
+  const year = 60 * 60 * 24 * 365;
+  function setCookie(name, value) {
+    const secure = location.protocol === "https:" ? "; Secure" : "";
+    document.cookie =
+      name + "=" + encodeURIComponent(value) +
+      "; Path=/" +
+      "; Max-Age=" + year +
+      "; SameSite=Lax" +
+      secure;
+  }
+  form.querySelectorAll('input[name="sort"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      setCookie("profile_sort", radio.value);
+      form.submit();
+    });
+  });
+});
+</script>
 
 {% endblock %}

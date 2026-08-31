@@ -47,8 +47,20 @@
 <h5>Replies</h5>
 {% if replies %}
   {% for r in replies %}
-    <div class="mb-3">
-      <div style="white-space:pre-wrap;">{{ r.body }}</div>
+    <div class="mb-3" id="forum-reply-{{ r.id }}">
+      {% if r.quoted_reply %}
+        <div class="quoted-comment-box">
+          <div class="small text-muted mb-1">
+            Quoted {{ r.quoted_reply.author.username }}:
+          </div>
+          <div style="white-space:pre-wrap;">
+            {{ r.quoted_reply.body }}
+          </div>
+        </div>
+        {% endif %}
+        <div style="white-space:pre-wrap;">
+          {{ r.body }}
+        </div>
       <small style="color:#bfbfbf; font-size:0.8rem;">
         {{ r.author.username }}
         {% set medals = user_medals.get(r.author.id) %}
@@ -78,6 +90,13 @@
         ({{ r.author.reputation or 0 }})
         · {{ r.created_at.strftime('%d-%m-%Y %H%M') }}
       </small>
+      {% if current_user.is_authenticated %}
+        <button type="button"
+          class="btn btn-sm btn-outline-info quote-forum-btn mt-1"
+          data-reply-id="{{ r.id }}">
+          Quote
+        </button>
+        {% endif %}
     </div>
   {% endfor %}
 {% else %}
@@ -90,7 +109,25 @@
         class="mt-3">
     <div class="mb-2">
       <label class="form-label">Add a reply</label>
-      <textarea name="body" rows="3" class="form-control" required></textarea>
+      <input type="hidden"
+       name="quoted_reply_id"
+       id="quoted_reply_id">
+      <div id="forum-quote-preview"
+          class="quoted-comment-box d-none">
+        <div class="small text-muted mb-1">
+          Replying with quote
+        </div>
+        <div id="forum-quote-preview-text"></div>
+        <button type="button"
+                class="btn btn-sm btn-outline-light mt-2"
+                id="clear-forum-quote-btn">
+          Clear quote
+        </button>
+      </div>
+      <textarea name="body"
+                rows="3"
+                class="form-control"
+                required></textarea>
     </div>
     <button type="submit" class="btn btn-sm btn-primary">Post reply</button>
   </form>

@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Categories – Moderators – BannedFromHeaven.com{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 mb-3">
+  <h1 class="h3 mb-0">Category suggestions</h1>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-sm btn-outline-light" href="{{ url_for('main.moderation_review') }}">← Moderation Review</a>
+    <a class="btn btn-sm btn-outline-warning" href="{{ url_for('main.moderation_duplicates') }}">Duplicates Review</a>
+  </div>
+</div>
+
+<p class="text-muted small">
+  Suggest adding or removing categories / subcategories.
+  An admin will <strong>Approve</strong> or <strong>Reject</strong> each suggestion on
+  <em>Suggested Category Mods</em>.
+</p>
+
+<div class="row g-3">
+  {# ---------- Add ---------- #}
+  <div class="col-lg-6">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header">
+        <strong>Add Category</strong>
+      </div>
+      <div class="card-body">
+        <form method="post" id="add-cat-form" autocomplete="off">
+          <input type="hidden" name="form" value="add">
+          <div class="mb-3">
+            <label class="form-label" for="parent_category_id">Parent</label>
+            <select name="parent_category_id" id="parent_category_id" class="form-select">
+              <option value="new" selected>New</option>
+              {% for c in categories %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">
+              <strong>New</strong> = propose a top-level category.
+              Pick an existing category to propose a <strong>subcategory</strong> under it.
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="proposed_name" id="proposed_name_label">Category</label>
+            <input type="text" name="proposed_name" id="proposed_name" class="form-control"
+                   maxlength="120" required
+                   placeholder="e.g. Work/Workplace or Lazy at Work">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="add_note">Note (optional)</label>
+            <input type="text" name="note" id="add_note" class="form-control" maxlength="255"
+                   placeholder="Why this is needed">
+          </div>
+          <button type="submit" class="btn btn-primary">Submit suggestion</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {# ---------- Remove ---------- #}
+  <div class="col-lg-6">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header">
+        <strong>Remove Category/Subcategory</strong>
+      </div>
+      <div class="card-body">
+        <form method="post" id="remove-cat-form" autocomplete="off"
+              onsubmit="return confirm(removeConfirmMessage());">
+          <input type="hidden" name="form" value="remove">
+          <div class="mb-3">
+            <label class="form-label" for="remove_category_id">Category</label>
+            <select name="remove_category_id" id="remove_category_id" class="form-select" required>
+              <option value="">— select category —</option>
+              {% for c in categories %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="remove_subcategory_id">Subcategory</label>
+            <select name="remove_subcategory_id" id="remove_subcategory_id" class="form-select">
+              <option value="main" selected>Main Category</option>
+            </select>
+            <div class="form-text">
+              <strong>Main Category</strong> = suggest removing the whole category (and its subs).
+              Or pick a subcategory to remove only that.
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="remove_note">Note (optional)</label>
+            <input type="text" name="note" id="remove_note" class="form-control" maxlength="255"
+                   placeholder="Why it should go">
+          </div>
+          <button type="submit" class="btn btn-outline-danger">Submit removal suggestion</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if my_pending %}
+<hr class="my-4 border-secondary">
+<h2 class="h5">Your pending suggestions</h2>
+<ul class="list-group list-group-flush mb-4">
+  {% for s in my_pending %}
+  <li class="list-group-item bg-dark text-light border-secondary">
+    <span class="badge text-bg-secondary">{{ s.action }}</span>
+    <span class="badge text-bg-dark border">{{ s.target_kind }}</span>
+    {% if s.action == 'add' %}
+      {% if s.target_kind == 'category' %}
+        Add category <strong>{{ s.proposed_name }}</strong>
+      {% else %}
+        Add subcategory <strong>{{ s.proposed_name }}</strong>
+        under <em>{{ s.parent_category_name or ('#' ~ s.parent_category_id) }}</em>
+      {% endif %}
+    {% else %}
+      {% if s.target_kind == 'category' %}
+        Remove category <strong>{{ s.category_name or ('#' ~ s.category_id) }}</strong>
+      {% else %}
+        Remove subcategory <strong>{{ s.subcategory_name or ('#' ~ s.subcategory_id) }}</strong>
+        from <em>{{ s.category_name or ('#' ~ s.category_id) }}</em>
+      {% endif %}
+    {% endif %}
+    <span class="text-muted small ms-2">
+      {{ s.created_at.strftime('%Y-%m-%d %H:%M') if s.created_at else '' }} UTC
+    </span>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const SUBS = {{ (subcategories_by_category or {})|tojson }};
+
+  // --- Add form: label toggles Category ↔ Subcategory ---
+  const parentSel = document.getElementById("parent_category_id");
+  const nameLabel = document.getElementById("proposed_name_label");
+  const nameInput = document.getElementById("proposed_name");
+
+  function syncAddLabel() {
+    const v = (parentSel && parentSel.value) || "new";
+    const isNew = !v || v === "new";
+    if (nameLabel) nameLabel.textContent = isNew ? "Category" : "Subcategory";
+    if (nameInput) {
+      nameInput.placeholder = isNew
+        ? "e.g. Work/Workplace"
+        : "e.g. Lazy at Work";
+    }
+  }
+  if (parentSel) {
+    parentSel.addEventListener("change", syncAddLabel);
+    syncAddLabel();
+  }
+
+  // --- Remove form: live subcategory list ---
+  const remCat = document.getElementById("remove_category_id");
+  const remSub = document.getElementById("remove_subcategory_id");
+
+  function fillRemoveSubs() {
+    if (!remSub) return;
+    const catId = remCat ? remCat.value : "";
+    const list = (catId && SUBS[catId]) ? SUBS[catId] : [];
+    remSub.innerHTML = "";
+    const main = document.createElement("option");
+    main.value = "main";
+    main.textContent = "Main Category";
+    main.selected = true;
+    remSub.appendChild(main);
+    list.forEach(function (s) {
+      const opt = document.createElement("option");
+      opt.value = String(s.id);
+      opt.textContent = s.name;
+      remSub.appendChild(opt);
+    });
+  }
+  if (remCat) {
+    remCat.addEventListener("change", fillRemoveSubs);
+    fillRemoveSubs();
+  }
+
+  window.removeConfirmMessage = function () {
+    if (!remCat || !remSub) return "Submit this removal suggestion?";
+    const catOpt = remCat.options[remCat.selectedIndex];
+    const catName = catOpt ? catOpt.textContent : "category";
+    const subVal = remSub.value;
+    if (!subVal || subVal === "main") {
+      return "Suggest removing the MAIN category “" + catName + "” (and all its subcategories)?";
+    }
+    const subOpt = remSub.options[remSub.selectedIndex];
+    const subName = subOpt ? subOpt.textContent : "subcategory";
+    return "Suggest removing subcategory “" + subName + "” under “" + catName + "”?";
+  };
+})();
+</script>
+{% endblock %}

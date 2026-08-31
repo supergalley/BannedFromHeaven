@@ -11,11 +11,18 @@ env/
 
 # OS/editor junk
 .DS_Store
+._*
+._.DS_Store
 Thumbs.db
 *.swp
 *.swo
 .vscode/
 .idea/
+
+# Environment files
+.env
+.env.*
+.env.local
 
 # Your runtime data (DO NOT COMMIT)
 data/

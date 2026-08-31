@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Delete user – Admin{% endblock %}
+
+{% block content %}
+<h2 class="mb-3">Delete user</h2>
+
+<div class="alert alert-danger">
+  <strong>This permanently deletes</strong>
+  <code>{{ user.username }}</code> (id {{ user.id }}) and
+  <strong>all</strong> their jokes, memes, clips, comments, votes, messages, forum posts, etc.
+  A full dump is written to <code>banning.log</code>.
+</div>
+
+<div class="card bg-dark border-secondary mb-4">
+  <div class="card-body">
+    <h5 class="card-title">Account</h5>
+    <ul class="mb-0">
+      <li><strong>Username:</strong> {{ user.username }}</li>
+      <li><strong>Email:</strong> {{ user.email }}</li>
+      <li><strong>Created:</strong> {{ user.created_at }}</li>
+      <li><strong>Reputation:</strong> {{ user.reputation }}</li>
+      <li><strong>Ban until:</strong> {{ user.ban_until or '—' }}</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card bg-dark border-secondary mb-4">
+  <div class="card-body">
+    <h5 class="card-title">Known login IPs</h5>
+    {% if ips %}
+      <ul class="mb-0">
+        {% for ip in ips %}
+          <li><code>{{ ip }}</code></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-muted mb-0">No IPs in login audit (nothing to IP-blacklist).</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if login_rows %}
+<div class="card bg-dark border-secondary mb-4">
+  <div class="card-body">
+    <h5 class="card-title">Recent logins (up to 100)</h5>
+    <div class="table-responsive">
+      <table class="table table-dark table-sm mb-0">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>OK?</th>
+            <th>IP</th>
+            <th>Host</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in login_rows %}
+          <tr>
+            <td>{{ a.created_at }}</td>
+            <td>{{ 'yes' if a.success else 'no' }}</td>
+            <td><code>{{ a.ip }}</code></td>
+            <td>{{ a.host }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('admin.delete_user', user_id=user.id) }}">
+  <div class="card bg-dark border-warning mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Blacklist options</h5>
+      <p class="text-muted small">
+        Checked items cannot be used to sign up (or log in) again.
+      </p>
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="bl_email" id="bl_email" value="1" checked>
+        <label class="form-check-label" for="bl_email">
+          Add email to blacklist
+          (<span class="text-muted">— <code>{{ user.email }}</code></span>
+        </label>
+      </div>
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="bl_ip" id="bl_ip" value="1"
+               {% if ips %}checked{% else %}disabled{% endif %}>
+        <label class="form-check-label" for="bl_ip">
+          Add IP{{ 's' if ips|length != 1 else '' }} to blacklist
+          {% if ips %}
+            <span class="text-muted">— {{ ips|length }} address{{ 'es' if ips|length != 1 else '' }}</span>
+          {% else %}
+            <span class="text-muted">— none recorded</span>
+          {% endif %}
+        </label>
+      </div>
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" name="bl_username" id="bl_username" value="1" checked>
+        <label class="form-check-label" for="bl_username">
+          Add username to blacklist
+          <span class="text-muted">— <code>{{ user.username }}</code> (case-insensitive)</span>
+        </label>
+      </div>
+      <div class="mb-0">
+        <label class="form-label" for="bl_reason">Reason (optional)</label>
+        <input type="text" class="form-control" name="bl_reason" id="bl_reason"
+               maxlength="255" placeholder="e.g. serial troll / mass downvotes">
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2">
+    <button type="submit" class="btn btn-danger"
+            onclick="return confirm('Really permanently delete {{ user.username|e }}?');">
+      Delete user permanently
+    </button>
+    <a href="{{ url_for('admin.users') }}" class="btn btn-outline-light">Cancel</a>
+    <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="btn btn-outline-secondary">Edit user</a>
+  </div>
+</form>
+{% endblock %}

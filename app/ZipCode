@@ -1,0 +1,5 @@
+#!/bin/bash
+#!/bin/zsh
+cd "$(dirname "$0")"
+rm -f BFH_Latest.zip
+zip -r BFH_Latest.zip *.py templates

@@ -1,5 +1,0 @@
-#!/bin/bash
-rm -f app.zip
-zip -r app.zip \
-  ./*.py \
-  ./templates

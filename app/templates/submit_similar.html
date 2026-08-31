@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}{% if hard_block %}Already submitted{% else %}Similar jokes found{% endif %} - BannedFromHeaven.com{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+  <div class="col-md-9">
+    {% if hard_block %}
+    <h3 class="mb-2">Already on the site</h3>
+    <p class="text-muted">
+      {% if hard_block_own %}
+        This looks like something <strong>you already posted</strong> very recently
+        (same or nearly the same wording). It was not submitted again.
+      {% else %}
+        An identical joke is already on the site. It was not submitted again.
+      {% endif %}
+    </p>
+    {% else %}
+    <h3 class="mb-2">Possible matches</h3>
+    <p class="text-muted">
+      These existing posts look similar to what you wrote (even if the wording differs).
+      Please check you are not re-posting someone else’s gag. If yours is original, confirm below.
+    </p>
+    {% endif %}
+
+    <div class="card mb-3 border-secondary">
+      <div class="card-header">Your draft {% if draft_joke_type == 'meme' %}(Meme){% endif %}</div>
+      <div class="card-body">
+        {% if draft_image_filename %}
+          <div class="mb-2 text-center">
+            <img src="{{ UPLOADS_URL }}/{{ draft_image_filename }}" alt="Your meme" class="img-fluid rounded border border-secondary" style="max-height: 280px;">
+          </div>
+        {% endif %}
+        {% if draft_body %}
+          <div class="text-break" style="white-space:pre-wrap;">{{ draft_body }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% for joke, score, method in similar %}
+    <div class="card mb-3 {% if hard_block %}border-warning{% endif %}">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>
+          <a href="{{ url_for('main.joke_detail', joke_id=joke.id) }}" target="_blank" rel="noopener">
+            Joke #{{ joke.id }}
+          </a>
+          {% if joke.author %}
+            · {{ joke.author.username }}
+          {% endif %}
+          {% if joke.created_at %}
+            · {{ joke.created_at.strftime('%d-%m-%Y %H%M') }}
+          {% endif %}
+        </span>
+        <span class="badge text-bg-secondary">
+          {{ '%.0f'|format(score * 100) }}% · {{ method }}
+        </span>
+      </div>
+      <div class="card-body">
+        {% if joke.is_meme and joke.image_filename %}
+          <div class="mb-2 text-center">
+            <a href="{{ url_for('main.joke_detail', joke_id=joke.id) }}" target="_blank" rel="noopener">
+              <img src="{{ UPLOADS_URL }}/{{ joke.image_filename }}" alt="Existing meme" class="img-fluid rounded border border-secondary" style="max-height: 280px;">
+            </a>
+          </div>
+        {% endif %}
+        {% if joke.body %}
+          <div class="text-break" style="white-space:pre-wrap;">{{ (joke.body or '')[:600] }}{% if (joke.body or '')|length > 600 %}…{% endif %}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+    {% if hard_block %}
+    <div class="d-flex flex-wrap gap-2 mb-4">
+      <a href="{{ url_for('main.joke_detail', joke_id=similar[0][0].id) }}" class="btn btn-primary">
+        Open existing post
+      </a>
+      <a href="{% if draft_id %}{{ url_for('main.submit_joke', draft=draft_id) }}{% else %}{{ url_for('main.submit_joke', type=draft_joke_type or 'joke') }}{% endif %}" class="btn btn-outline-secondary">
+        Back to submit
+      </a>
+    </div>
+    {% else %}
+    <form method="post" action="{{ url_for('main.submit_joke') }}" class="d-flex flex-wrap gap-2 mb-4" id="confirm-original-form">
+      <input type="hidden" name="joke_type" value="{{ draft_joke_type or 'joke' }}">
+      <input type="hidden" name="category_id" value="{{ draft_category_id or '' }}">
+      <input type="hidden" name="subcategory_id" value="{{ draft_subcategory_id or '' }}">
+      <input type="hidden" name="salute_to" value="{{ draft_salute_to or '' }}">
+      <input type="hidden" name="confirm_original" value="1">
+      {% if draft_image_filename %}
+      <input type="hidden" name="image_filename" value="{{ draft_image_filename }}">
+      {% endif %}
+      {% if matched_joke_id %}
+      <input type="hidden" name="matched_joke_id" value="{{ matched_joke_id }}">
+      <input type="hidden" name="matched_score" value="{{ matched_score or '' }}">
+      {% endif %}
+      {% if draft_id %}
+      <input type="hidden" name="draft_id" value="{{ draft_id }}">
+      {% endif %}
+      <textarea name="body" class="d-none" aria-hidden="true">{{ draft_body or '' }}</textarea>
+      <button type="submit" class="btn btn-success" id="confirm-original-btn">
+        These aren’t the same — post mine
+      </button>
+      <a href="{% if draft_id %}{{ url_for('main.submit_joke', draft=draft_id) }}{% else %}{{ url_for('main.submit_joke', type=draft_joke_type or 'joke') }}{% endif %}" class="btn btn-outline-secondary">
+        Go back and edit
+      </a>
+    </form>
+    {% endif %}
+  </div>
+</div>
+<script>
+(function () {
+  var f = document.getElementById("confirm-original-form");
+  var b = document.getElementById("confirm-original-btn");
+  if (f && b) {
+    f.addEventListener("submit", function () {
+      b.disabled = true;
+      b.textContent = "Posting…";
+    });
+  }
+})();
+</script>
+{% endblock %}

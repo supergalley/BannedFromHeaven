@@ -4,7 +4,7 @@
 {% block content %}
 <h2>Edit joke #{{ joke.id }}</h2>
 
- <form method="post">
+ <form method="post" autocomplete="off">
     <div class="mb-3">
       <label class="form-label">Body</label>
       <textarea name="body" class="form-control" rows="6">{{ joke.body }}</textarea>
@@ -12,7 +12,7 @@
 
     <div class="mb-3">
       <label class="form-label">Category</label>
-      <select name="category_id" class="form-select">
+      <select name="category_id" id="category_id" class="form-select">
         <option value="">(none)</option>
         {% for c in categories %}
           <option value="{{ c.id }}" {% if joke.category_id == c.id %}selected{% endif %}>
@@ -20,6 +20,26 @@
           </option>
         {% endfor %}
       </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Subcategory</label>
+      <select name="subcategory_id" id="subcategory_id" class="form-select"
+              data-selected="{{ joke.subcategory_id or '' }}">
+        <option value="">(none)</option>
+      </select>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="salute_to">Salute to</label>
+      <input type="text"
+             name="salute_to"
+             id="salute_to"
+             class="form-control"
+             maxlength="32"
+             autocomplete="off"
+             value="{{ joke.salute_to or '' }}"
+             placeholder="Optional — member name or free text">
+      <div class="form-text">Clear the box to remove the salute.</div>
     </div>
 
     <button class="btn btn-primary" type="submit">Save</button>
@@ -33,4 +53,33 @@
       Delete
     </button>
   </form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const SUBCATS_BY_CAT = {{ (subcategories_by_category or {})|tojson }};
+  const catSel = document.getElementById('category_id');
+  const subSel = document.getElementById('subcategory_id');
+  if (!catSel || !subSel) return;
+  const preferred = (subSel.getAttribute('data-selected') || '').trim();
+  function fill(catId, keepId) {
+    const list = (catId && SUBCATS_BY_CAT[catId]) ? SUBCATS_BY_CAT[catId] : [];
+    subSel.innerHTML = '';
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = list.length ? '(none)' : (catId ? '(no subcategories)' : '(pick a category)');
+    subSel.appendChild(none);
+    list.forEach(function (s) {
+      const opt = document.createElement('option');
+      opt.value = String(s.id);
+      opt.textContent = s.name;
+      if (keepId && String(s.id) === String(keepId)) opt.selected = true;
+      subSel.appendChild(opt);
+    });
+    subSel.disabled = !catId;
+  }
+  catSel.addEventListener('change', function () { fill(catSel.value, ''); });
+  fill(catSel.value, preferred);
+})();
+</script>
 {% endblock %}

@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}Announcements Marquee – Admin{% endblock %}
+{% block content %}
+<div class="mt-3 mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+  <h2 class="h3 mb-0">Announcements Marquee</h2>
+  <a href="{{ url_for('admin.dashboard') }}" class="btn btn-sm btn-outline-light">← Dashboard</a>
+</div>
+
+<p class="text-muted small">
+  Each line is one announcement. They scroll under the site logo site-wide when enabled.
+  Use ↑ / ↓ to reorder, ❌ to remove, ➕ to add.
+</p>
+
+<form method="post" id="marquee-form">
+  <div class="form-check form-switch mb-3">
+    <input class="form-check-input" type="checkbox" name="marquee_enabled" value="1"
+           id="marquee_enabled" {% if settings.marquee_enabled %}checked{% endif %}>
+    <label class="form-check-label" for="marquee_enabled">
+      Show marquee on the public site
+    </label>
+  </div>
+
+  <h3 class="h5 mt-4">Announcements</h3>
+  <div id="announcement-list" class="mb-2">
+    {% for text in items %}
+    <div class="announcement-row d-flex flex-wrap align-items-center gap-2 mb-2">
+      <input type="text" name="announcement" class="form-control form-control-sm flex-grow-1"
+             value="{{ text }}" maxlength="500" placeholder="Announcement text…">
+      <div class="btn-group btn-group-sm" role="group">
+        <button type="button" class="btn btn-outline-secondary ann-up" title="Move up">⬆️</button>
+        <button type="button" class="btn btn-outline-secondary ann-down" title="Move down">⬇️</button>
+        <button type="button" class="btn btn-outline-danger ann-del" title="Delete">❌</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <button type="button" class="btn btn-sm btn-outline-success mb-4" id="ann-add">➕ Add announcement</button>
+
+  <h3 class="h5">Theme / effects</h3>
+  <div class="row g-3 mb-3">
+    <div class="col-md-3">
+      <label class="form-label small">Speed (seconds / loop)</label>
+      <input type="number" name="speed" class="form-control form-control-sm"
+             min="5" max="180" value="{{ theme.speed }}">
+      <div class="form-text">Higher = slower</div>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small">Direction</label>
+      <select name="direction" class="form-select form-select-sm">
+        <option value="left" {% if theme.direction == 'left' %}selected{% endif %}>Right → left</option>
+        <option value="right" {% if theme.direction == 'right' %}selected{% endif %}>Left → right</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small">Text colour</label>
+      <input type="color" name="text_color" class="form-control form-control-sm form-control-color w-100"
+             value="{{ theme.text_color if theme.text_color.startswith('#') else '#ffb3e6' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small">Background</label>
+      <input type="color" name="bg_color" class="form-control form-control-sm form-control-color w-100"
+             value="{{ theme.bg_color if theme.bg_color.startswith('#') else '#1a0a1a' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small">Font size (px)</label>
+      <input type="number" name="font_size" class="form-control form-control-sm"
+             min="10" max="48" value="{{ theme.font_size }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small">Font weight</label>
+      <select name="font_weight" class="form-select form-select-sm">
+        {% for w in ['400','500','600','700','800'] %}
+        <option value="{{ w }}" {% if theme.font_weight == w %}selected{% endif %}>{{ w }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small">Gap between items (px)</label>
+      <input type="number" name="gap" class="form-control form-control-sm"
+             min="8" max="200" value="{{ theme.gap }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small">Vertical padding (px)</label>
+      <input type="number" name="padding_y" class="form-control form-control-sm"
+             min="0" max="40" value="{{ theme.padding_y }}">
+    </div>
+    <div class="col-md-6">
+      <label class="form-label small">Separator between announcements</label>
+      <input type="text" name="separator" class="form-control form-control-sm"
+             value="{{ theme.separator }}" maxlength="40">
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="glow" value="1" id="glow"
+               {% if theme.glow %}checked{% endif %}>
+        <label class="form-check-label" for="glow">Text glow</label>
+      </div>
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="pause_on_hover" value="1" id="pause_on_hover"
+               {% if theme.pause_on_hover %}checked{% endif %}>
+        <label class="form-check-label" for="pause_on_hover">Pause on hover</label>
+      </div>
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save marquee</button>
+</form>
+
+<template id="ann-row-template">
+  <div class="announcement-row d-flex flex-wrap align-items-center gap-2 mb-2">
+    <input type="text" name="announcement" class="form-control form-control-sm flex-grow-1"
+           value="" maxlength="500" placeholder="Announcement text…">
+    <div class="btn-group btn-group-sm" role="group">
+      <button type="button" class="btn btn-outline-secondary ann-up" title="Move up">⬆️</button>
+      <button type="button" class="btn btn-outline-secondary ann-down" title="Move down">⬇️</button>
+      <button type="button" class="btn btn-outline-danger ann-del" title="Delete">❌</button>
+    </div>
+  </div>
+</template>
+
+<script>
+(function () {
+  const list = document.getElementById("announcement-list");
+  const tpl = document.getElementById("ann-row-template");
+  const addBtn = document.getElementById("ann-add");
+  if (!list || !tpl || !addBtn) return;
+
+  function rows() {
+    return Array.from(list.querySelectorAll(".announcement-row"));
+  }
+
+  function refreshButtons() {
+    const r = rows();
+    r.forEach(function (row, i) {
+      const up = row.querySelector(".ann-up");
+      const down = row.querySelector(".ann-down");
+      if (up) {
+        up.disabled = i === 0;
+        up.classList.toggle("disabled", i === 0);
+      }
+      if (down) {
+        down.disabled = i === r.length - 1;
+        down.classList.toggle("disabled", i === r.length - 1);
+      }
+    });
+  }
+
+  function addRow(text) {
+    const node = tpl.content.cloneNode(true);
+    const row = node.querySelector(".announcement-row");
+    const input = row.querySelector('input[name="announcement"]');
+    if (input && text) input.value = text;
+    list.appendChild(node);
+    refreshButtons();
+    if (input) input.focus();
+  }
+
+  list.addEventListener("click", function (e) {
+    const row = e.target.closest(".announcement-row");
+    if (!row || !list.contains(row)) return;
+    if (e.target.closest(".ann-del")) {
+      const r = rows();
+      if (r.length <= 1) {
+        row.querySelector('input[name="announcement"]').value = "";
+      } else {
+        row.remove();
+      }
+      refreshButtons();
+      return;
+    }
+    if (e.target.closest(".ann-up") && !e.target.closest(".ann-up").disabled) {
+      const prev = row.previousElementSibling;
+      if (prev) list.insertBefore(row, prev);
+      refreshButtons();
+      return;
+    }
+    if (e.target.closest(".ann-down") && !e.target.closest(".ann-down").disabled) {
+      const next = row.nextElementSibling;
+      if (next) list.insertBefore(next, row);
+      refreshButtons();
+    }
+  });
+
+  addBtn.addEventListener("click", function () { addRow(""); });
+  refreshButtons();
+})();
+</script>
+{% endblock %}

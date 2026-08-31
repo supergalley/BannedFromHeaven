@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Moderation Review{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 mb-3">
+  <h1 class="h3 mb-0">Moderation Review</h1>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-sm btn-outline-info"
+       href="{{ url_for('main.moderation_categories') }}">
+      Categories
+    </a>
+    <a class="btn btn-sm btn-outline-warning"
+       href="{{ url_for('main.moderation_duplicates') }}">
+      Duplicates Review{% if pending_dupe_count is defined and pending_dupe_count %} ({{ pending_dupe_count }}){% endif %}
+    </a>
+  </div>
+</div>
+{% if not items %}
+<p>No submissions waiting for review.</p>
+{% endif %}
+{% for joke in items %}
+<div class="card bg-dark text-light mb-3 p-3 border-secondary">
+  <h2>#{{ joke.id }} by {{ joke.author.username }}</h2>
+  <p><strong>Type:</strong> {% if joke.is_meme %}Meme{% elif joke.is_clip %}Clip{% else %}Joke{% endif %}</p>
+  <p><strong>Submitted:</strong> {{ joke.created_at }}</p>
+  {% if joke.body %}
+  <pre class="bg-black text-light p-3">{{ joke.body }}</pre>
+  {% endif %}
+  {% if joke.is_meme and joke.image_filename %}
+  <img src="{{ url_for('main.uploaded_file', filename=joke.image_filename) }}" style="max-width:420px;">
+  {% endif %}
+  {% if joke.is_clip and joke.video_filename %}
+  <video src="{{ url_for('main.clip_file', filename=joke.video_filename) }}" controls style="max-width:420px;"></video>
+  {% endif %}
+  <div class="mt-3">
+    <form method="post" action="{{ url_for('main.moderation_approve', joke_id=joke.id) }}" style="display:inline;">
+      <button type="submit" class="btn btn-success">Approve</button>
+    </form>
+  </div>
+  <form method="post" action="{{ url_for('main.moderation_reject', joke_id=joke.id) }}" class="mt-3">
+    <div class="mb-2">
+      <label class="me-3"><input type="checkbox" name="reasons" value="Rubbish"> Rubbish</label>
+      <label class="me-3"><input type="checkbox" name="reasons" value="Illegal"> Illegal</label>
+      <label class="me-3"><input type="checkbox" name="reasons" value="Repeat Post"> Repeat post</label>
+      <label class="me-3"><input type="checkbox" name="reasons" value="Wrong Category"> Wrong category</label>
+      <label class="me-3"><input type="checkbox" name="reasons" value="Not A Joke"> Not a joke</label>
+      <label class="me-3"><input type="checkbox" name="reasons" value="Low Effort"> Low effort</label>
+      <label class="me-3"><input type="checkbox" name="reasons" value="Shitty Bandwagon"> Shitty bandwagon</label>
+      <label class="me-3"><input type="checkbox" name="reasons" value="Wasp-Like"> Wasp-like</label>
+      <label class="me-3"><input type="checkbox" name="reasons" value="Spam"> Spam</label>
+    </div>
+    <button type="submit" class="btn btn-danger ms-2">Reject</button>
+  </form>
+</div>
+{% endfor %}
+{% endblock %}

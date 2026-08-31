@@ -18,10 +18,18 @@
 
 <input type="hidden" name="category_ids" id="category_ids"
        value="{% if selected_category_ids %}{{ selected_category_ids|join(',') }}{% endif %}">
+<input type="hidden" name="subcategory_ids" id="subcategory_ids"
+       value="{% if selected_subcategory_ids %}{{ selected_subcategory_ids|join(',') }}{% endif %}">
 
-<div class="mb-3">
-  <label class="form-label small">Categories</label>
-  <div class="d-flex flex-wrap gap-2" id="categoryPills">
+  <div class="mb-3">
+    <button type="button"
+            class="btn btn-sm btn-outline-light mb-2"
+            id="toggleCategoryCard">
+      Show categories
+    </button>
+    <div class="joke-card d-none" id="categoryCard">
+      <label class="form-label small">Categories</label>
+      <div class="d-flex flex-wrap gap-2" id="categoryPills">
     <button type="button"
             class="btn btn-sm {% if not selected_category_ids %}btn-light{% else %}btn-outline-light{% endif %} category-pill"
             data-cat="">
@@ -35,7 +43,27 @@
       </button>
     {% endfor %}
   </div>
-  <div class="form-text">Tap multiple categories, then Search. Auto-refresh is debounced so you can tap a few.</div>
+    <div class="form-text">Tap multiple categories, then Search. Auto-refresh is debounced so you can tap a few.</div>
+
+    <div class="mt-3" id="subcategorySection" {% if not searchable_subcategories %}style="display:none"{% endif %}>
+      <label class="form-label small">Subcategories</label>
+      <div class="d-flex flex-wrap gap-2" id="subcategoryPills">
+        <button type="button"
+                class="btn btn-sm {% if not selected_subcategory_ids %}btn-light{% else %}btn-outline-light{% endif %} subcategory-pill"
+                data-sub="">
+          All subcategories
+        </button>
+        {% for sub in searchable_subcategories %}
+        <button type="button"
+                class="btn btn-sm {% if sub.id in selected_subcategory_ids %}btn-light{% else %}btn-outline-light{% endif %} subcategory-pill"
+                data-sub="{{ sub.id }}">
+          {{ sub.name }}
+        </button>
+        {% endfor %}
+      </div>
+      <div class="form-text">Shown for the selected categories (or all if none selected).</div>
+    </div>
+  </div>
 </div>
 
   <div class="row g-2 align-items-end">
@@ -120,27 +148,84 @@
   {% for joke in results %}
     <div class="joke-card d-flex">
       <div class="me-3 text-center">
-        {% if current_user.is_authenticated %}
-          <div class="vote-btn {% if vote_map.get(joke.id) == 1 %}voted-up{% endif %}" data-id="{{ joke.id }}" data-dir="up">⬆</div>
-        {% else %}<div>⬆</div>{% endif %}
+        {% set my_vote = vote_map.get(joke.id) if vote_map is defined else none %}
+        {% if current_user.is_authenticated and current_user.id == joke.user_id %}
+          <div class="vote-disabled" title="Your auto +1 is already applied — you can't vote on your own joke">🔥</div>
+        {% elif current_user.is_authenticated %}
+          {% set double_ok = joke_allows_double_vote(joke) %}
+          <div class="vote-btn {% if my_vote == 1 %}voted-up{% elif my_vote == 2 %}voted-up-2{% endif %}"
+               data-id="{{ joke.id }}" data-dir="up"
+               data-double="{{ 1 if double_ok else 0 }}"
+               title="{{ 'Tap for 🔥 · hold 2–4s for 💥' if double_ok else 'Upvote 🔥' }}">{% if my_vote == 2 %}💥{% else %}🔥{% endif %}</div>
+        {% else %}<div>🔥</div>{% endif %}
         <div id="score-{{ joke.id }}">{{ joke.score }}</div>
-        {% if current_user.is_authenticated %}
-          <div class="vote-btn {% if vote_map.get(joke.id) == -1 %}voted-down{% endif %}" data-id="{{ joke.id }}" data-dir="down">⬇</div>
-        {% else %}<div>⬇</div>{% endif %}
+        {% if current_user.is_authenticated and current_user.id == joke.user_id %}
+          <div class="vote-disabled" title="You can't vote on your own joke">💩</div>
+        {% elif current_user.is_authenticated and not current_user.needs_moderator and not current_user.is_banned() %}
+          <div class="vote-btn {% if my_vote == -1 %}voted-down{% endif %}" data-id="{{ joke.id }}" data-dir="down">💩</div>
+        {% else %}
+          <div title="{% if current_user.is_authenticated and current_user.needs_moderator %}Accounts under review cannot downvote{% elif current_user.is_authenticated and current_user.is_banned() %}Banned users cannot downvote{% endif %}">💩</div>
+        {% endif %}
+        {% set t = (vote_tallies.get(joke.id) if vote_tallies is defined and vote_tallies else none) or {'super': 0, 'up': 0, 'down': 0} %}
+        <div class="vote-stats-wrap" id="vote-tally-{{ joke.id }}">
+          <button type="button" class="vote-stats-btn" title="Vote breakdown" aria-label="Show vote breakdown" aria-expanded="false">🗳️</button>
+          <div class="vote-stats-card" role="dialog" aria-label="Vote breakdown">
+            <div class="vote-stats-card-title">Votes</div>
+            <div class="vote-tally vote-tally-super">
+              <span class="vote-tally-icon">💥</span>
+              <span class="vote-tally-n" data-kind="super">{{ t.super }}</span>
+              <span class="vote-tally-label">super</span>
+            </div>
+            <div class="vote-tally vote-tally-up">
+              <span class="vote-tally-icon">🔥</span>
+              <span class="vote-tally-n" data-kind="up">{{ t.up }}</span>
+              <span class="vote-tally-label">up</span>
+            </div>
+            <div class="vote-tally vote-tally-down">
+              <span class="vote-tally-icon">💩</span>
+              <span class="vote-tally-n" data-kind="down">{{ t.down }}</span>
+              <span class="vote-tally-label">down</span>
+            </div>
+          </div>
+        </div>
+        {% if current_user.is_authenticated and (current_user.is_admin or current_user.is_moderator) %}
+        <div class="vote-stats-wrap vote-voters-wrap" data-joke-id="{{ joke.id }}">
+          <button type="button" class="vote-stats-btn vote-voters-btn" title="Who voted (mods)" aria-label="Show who voted" aria-expanded="false">🛂</button>
+          <div class="vote-stats-card vote-voters-card" role="dialog" aria-label="Voters">
+            <div class="vote-stats-card-title">Voters</div>
+            <div class="vote-voters-list"><div class="vote-voters-loading">Tap to load…</div></div>
+          </div>
+        </div>
+        {% endif %}
       </div>
-
       <div class="flex-grow-1">
         {% if joke.is_meme and joke.image_filename %}
           <img src="{{ UPLOADS_URL }}/{{ joke.image_filename|urlencode }}" class="img-fluid mb-2">
         {% endif %}
-
-        <p class="mt-1 mb-1" style="white-space:pre-wrap;">{{ joke.body }}</p>
-
+        <p class="mt-1 mb-1" style="white-space:pre-wrap;">{% if joke.author and (joke.author.is_admin or joke.author.is_moderator) %}{{ joke.body|safe }}{% else %}{{ joke.body }}{% endif %}</p>
+        <button type="button"
+          class="btn btn-sm btn-outline-light copy-joke-btn"
+          data-copy-text="{{ joke.body|e }}"
+          title="Copy joke">
+            📋
+        </button>
+        {% if joke.salute_to %}
+          <div class="small mt-1" style="color:#ffb3e6;">
+            🫡 <b><i>Salute to {{ joke.salute_to }}</i></b>
+          </div>
+        {% endif %}
         {% if joke.category %}
           <a href="{{ category_url_map.get(joke.category.id, url_for('main.search')) }}"
-             style="display:inline-block; background:#9f7bff33; color:#9f7bff; padding:3px 10px; margin-top:5px; border:1px solid #9f7bff; border-radius:6px; font-size:0.8rem;">
-            {{ joke.category.name }}
+             style="display:inline-block; background:#9f7bff33; color:#9f7bff; padding:3px 10px; margin-top:5px; border:1px solid #9f7bff; border-radius:6px; font-size:0.8rem; text-decoration:none;">
+            {{ joke.category.name }}{% if joke.subcategory %} › {{ joke.subcategory.name }}{% endif %}
           </a>
+          {% if joke.subcategory %}
+          <a href="{{ subcategory_url_map.get(joke.subcategory.id, url_for('main.search')) }}"
+             class="ms-1"
+             style="display:inline-block; background:#333; color:#ccc; padding:3px 8px; margin-top:5px; border:1px solid #555; border-radius:6px; font-size:0.75rem; text-decoration:none;">
+            {{ joke.subcategory.name }}
+          </a>
+          {% endif %}
         {% endif %}
 
         <p class="mt-2 mb-0 small" style="color:#bfbfbf;">
@@ -168,77 +253,42 @@
 
 {% block scripts %}
 <script>
-function updateVoteGlow(jokeId, direction) {
-  const upBtn = document.querySelector(`.vote-btn[data-id="${jokeId}"][data-dir="up"]`);
-  const downBtn = document.querySelector(`.vote-btn[data-id="${jokeId}"][data-dir="down"]`);
-  if (!upBtn || !downBtn) return;
-
-  const upActive = upBtn.classList.contains('voted-up');
-  const downActive = downBtn.classList.contains('voted-down');
-
-  let newUp = upActive;
-  let newDown = downActive;
-
-  if (direction === 'up') {
-    newUp = !upActive;
-    newDown = false;
-  } else if (direction === 'down') {
-    newUp = false;
-    newDown = !downActive;
-  }
-
-  upBtn.classList.toggle('voted-up', newUp);
-  downBtn.classList.toggle('voted-down', newDown);
-}
-
-document.querySelectorAll('.vote-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const id = btn.dataset.id;
-    const direction = btn.dataset.dir;
-
-    fetch(`/api/jokes/${id}/vote`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({direction})
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.score !== undefined) {
-        const scoreEl = document.getElementById(`score-${id}`);
-        if (scoreEl) scoreEl.innerText = data.score;
-      }
-      updateVoteGlow(id, direction);
-    })
-    .catch(err => console.error(err));
-  });
-});
-</script>
-
-
-
-<script>
 (function () {
   const pills = document.querySelectorAll(".category-pill");
   const hidden = document.getElementById("category_ids");
+  const subHidden = document.getElementById("subcategory_ids");
+  const subPills = document.querySelectorAll(".subcategory-pill");
   const form = hidden ? hidden.closest("form") : null;
   if (!pills.length || !hidden || !form) return;
 
   let timer = null;
 
-  function getSelected() {
-    const raw = (hidden.value || "").trim();
+  function getSelected(el) {
+    const raw = (el.value || "").trim();
     if (!raw) return [];
     return raw.split(",").map(s => s.trim()).filter(Boolean);
   }
 
-  function setSelected(arr) {
-    hidden.value = arr.join(",");
+  function setSelected(el, arr) {
+    el.value = arr.join(",");
   }
 
-  function render() {
-    const sel = new Set(getSelected());
+  function renderCats() {
+    const sel = new Set(getSelected(hidden));
     pills.forEach(btn => {
       const id = btn.getAttribute("data-cat");
+      const isAll = !id;
+      const active = (isAll && sel.size === 0) || (!isAll && sel.has(id));
+      btn.classList.toggle("btn-light", active);
+      btn.classList.toggle("btn-outline-light", !active);
+    });
+  }
+
+  function renderSubs() {
+    if (!subHidden) return;
+    const sel = new Set(getSelected(subHidden));
+    subPills.forEach(btn => {
+      const id = btn.getAttribute("data-sub");
       const isAll = !id;
       const active = (isAll && sel.size === 0) || (!isAll && sel.has(id));
       btn.classList.toggle("btn-light", active);
@@ -254,7 +304,7 @@ document.querySelectorAll('.vote-btn').forEach(btn => {
   pills.forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-cat");
-      let sel = getSelected();
+      let sel = getSelected(hidden);
 
       if (!id) {
         sel = [];
@@ -264,14 +314,51 @@ document.querySelectorAll('.vote-btn').forEach(btn => {
         else sel.push(id);
       }
 
-      setSelected(sel);
-      render();
+      setSelected(hidden, sel);
+      // Changing categories clears subcategory filter (list of available subs changes)
+      if (subHidden) setSelected(subHidden, []);
+      renderCats();
+      renderSubs();
       submitSoon();
     });
   });
 
-  render();
+  subPills.forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!subHidden) return;
+      const id = btn.getAttribute("data-sub");
+      let sel = getSelected(subHidden);
+      if (!id) {
+        sel = [];
+      } else {
+        const idx = sel.indexOf(id);
+        if (idx >= 0) sel.splice(idx, 1);
+        else sel.push(id);
+      }
+      setSelected(subHidden, sel);
+      renderSubs();
+      submitSoon();
+    });
+  });
+
+  renderCats();
+  renderSubs();
 })();
 </script>
-
+<script>
+(function(){
+  const btn=document.getElementById("toggleCategoryCard");
+  const card=document.getElementById("categoryCard");
+  if(!btn||!card) return;
+  const hasSelection = {{ 'true' if (selected_category_ids or selected_subcategory_ids) else 'false' }};
+  if (hasSelection) {
+    card.classList.remove("d-none");
+    btn.textContent = "Hide categories";
+  }
+  btn.addEventListener("click",function(){
+    const hidden=card.classList.toggle("d-none");
+    btn.textContent=hidden ? "Show categories" : "Hide categories";
+  });
+})();
+</script>
 {% endblock %}

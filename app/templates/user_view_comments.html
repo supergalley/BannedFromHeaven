@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}My posts with comments – BannedFromHeaven.com{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 mb-3">
+  <h1 class="h3 mb-0">My posts with comments</h1>
+  <div class="d-flex flex-wrap align-items-center gap-2">
+    {% if has_any_unseen %}
+    <form method="post" action="{{ url_for('main.user_mark_all_comments_seen') }}" class="m-0">
+      <button type="submit" class="btn btn-sm btn-outline-success"
+              onclick="return confirm('Mark all comments on your posts as seen?');">
+        Mark all as seen
+      </button>
+    </form>
+    {% endif %}
+    <span class="text-muted small">{{ items|length }} post{% if items|length != 1 %}s{% endif %}</span>
+  </div>
+</div>
+
+<p class="text-muted small">
+  Your jokes, memes and clips that have at least one comment.
+  Items with a green glow have comments you have not opened yet (open the post to mark them seen).
+</p>
+
+<form method="get" class="row g-2 align-items-end mb-3">
+  <div class="col-auto">
+    <label class="form-label small mb-0">Sort</label>
+    <select name="sort" class="form-select form-select-sm" onchange="this.form.submit()">
+      <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest → oldest</option>
+      <option value="oldest" {% if sort == 'oldest' %}selected{% endif %}>Oldest → newest</option>
+      <option value="most" {% if sort == 'most' %}selected{% endif %}>Most comments → least</option>
+      <option value="least" {% if sort == 'least' %}selected{% endif %}>Least comments → most</option>
+    </select>
+  </div>
+  <div class="col-auto">
+    <label class="form-label small mb-0">Type</label>
+    <select name="type" class="form-select form-select-sm" onchange="this.form.submit()">
+      <option value="all" {% if type_filter == 'all' %}selected{% endif %}>All</option>
+      <option value="joke" {% if type_filter == 'joke' %}selected{% endif %}>Jokes</option>
+      <option value="meme" {% if type_filter == 'meme' %}selected{% endif %}>Memes</option>
+      <option value="clip" {% if type_filter == 'clip' %}selected{% endif %}>Clips</option>
+    </select>
+  </div>
+</form>
+
+{% if not items %}
+  <div class="alert alert-secondary">None of your posts have comments yet.</div>
+{% else %}
+  <div class="list-group list-group-flush">
+    {% for item in items %}
+      {% set joke = item.joke %}
+      {% set n = item.comment_count %}
+      <a href="{{ url_for('main.joke_detail', joke_id=joke.id) }}#comments"
+         class="list-group-item list-group-item-action bg-dark text-light border-secondary mb-2 rounded {% if item.has_unseen %}glow-green-unseen{% endif %}">
+        <div class="d-flex justify-content-between gap-2">
+          <div class="flex-grow-1 min-w-0">
+            <div class="small text-muted mb-1">
+              {% if joke.is_meme %}Meme
+              {% elif joke.is_clip %}Clip
+              {% else %}Joke{% endif %}
+              · #{{ joke.id }}
+              · {{ joke.created_at.strftime('%d-%m-%Y') if joke.created_at else '' }}
+              {% if item.last_comment_at %}
+                · last comment {{ item.last_comment_at.strftime('%d-%m-%Y %H:%M') }}
+              {% endif %}
+              {% if item.has_unseen %}
+                · <span class="text-success">new</span>
+              {% endif %}
+            </div>
+            <div class="text-truncate" style="max-width: 100%;">
+              {% if joke.body and joke.body.strip() %}
+                {{ joke.body|striptags|truncate(140, True, '…') }}
+              {% elif joke.is_meme %}
+                <em class="text-muted">[meme image]</em>
+              {% elif joke.is_clip %}
+                <em class="text-muted">[video clip]</em>
+              {% else %}
+                <em class="text-muted">[no text]</em>
+              {% endif %}
+            </div>
+          </div>
+          <div class="text-end flex-shrink-0">
+            <span class="badge {% if item.has_unseen %}bg-success{% else %}bg-primary{% endif %} rounded-pill" title="Comment count">
+              {{ n }} comment{% if n != 1 %}s{% endif %}
+            </span>
+            <div class="small text-muted mt-1">score {{ joke.score or 0 }}</div>
+          </div>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}
