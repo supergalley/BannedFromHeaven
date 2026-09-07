@@ -3635,43 +3635,71 @@ def moderator_unban_user(user_id):
 
 
 def get_sockpuppet_matches(limit: int = 35) -> list[dict]:
-    """Find IP addresses shared by multiple users, prioritized by banned/questionable accounts."""
+    """Find IP addresses shared by multiple users, requiring recurrent logins to eliminate admin-assist false positives."""
+    from collections import defaultdict
     from .models import LoginAudit, User
-    from sqlalchemy import func
 
-    # Find IPs used by 2+ distinct user_ids
-    shared_ips = (
-        db.session.query(LoginAudit.ip, func.count(func.distinct(LoginAudit.user_id)).label("ucount"))
-        .filter(LoginAudit.ip.isnot(None), LoginAudit.ip != "", LoginAudit.user_id.isnot(None))
-        .group_by(LoginAudit.ip)
-        .having(func.count(func.distinct(LoginAudit.user_id)) > 1)
-        .order_by(func.count(func.distinct(LoginAudit.user_id)).desc())
-        .limit(100)
+    # Query all logins per user per IP
+    rows = (
+        db.session.query(
+            LoginAudit.user_id,
+            LoginAudit.ip,
+            func.count(LoginAudit.id).label("cnt")
+        )
+        .filter(LoginAudit.user_id.isnot(None), LoginAudit.ip.isnot(None), LoginAudit.ip != "")
+        .group_by(LoginAudit.user_id, LoginAudit.ip)
         .all()
     )
 
-    now = datetime.utcnow()
+    user_totals = defaultdict(int)
+    user_ips = defaultdict(dict)
+    for uid, ip, cnt in rows:
+        user_totals[uid] += cnt
+        user_ips[uid][ip] = cnt
+
+    # Significant IP Rule:
+    # An account is linked to an IP if:
+    # 1) User logged in 2+ times from this IP (recurrent)
+    # OR
+    # 2) Account has <= 3 total logins ever and logged in from this IP (e.g. brand new alt)
+    # If an established account has 10+ logins elsewhere and only 1 isolated login on an IP (e.g. admin assist / tech support), it is excluded.
+    significant_user_ips = defaultdict(set)
+    for uid, ips in user_ips.items():
+        tot = user_totals[uid]
+        for ip, cnt in ips.items():
+            if cnt >= 2 or (tot <= 3 and cnt >= 1):
+                significant_user_ips[uid].add(ip)
+
+    ip_to_users = defaultdict(set)
+    for uid, ips in significant_user_ips.items():
+        for ip in ips:
+            ip_to_users[ip].add(uid)
+
+    all_user_ids = set()
+    for uids in ip_to_users.values():
+        if len(uids) > 1:
+            all_user_ids.update(uids)
+
+    users_by_id = {u.id: u for u in User.query.filter(User.id.in_(all_user_ids)).all()}
+
     clusters = []
-    for ip, count in shared_ips:
-        uids = [
-            r[0] for r in db.session.query(func.distinct(LoginAudit.user_id))
-            .filter(LoginAudit.ip == ip, LoginAudit.user_id.isnot(None))
-            .all()
-        ]
-        users = User.query.filter(User.id.in_(uids)).all()
-        if not users:
+    for ip, uids in ip_to_users.items():
+        if len(uids) < 2:
             continue
-        has_banned = any(u.is_banned() for u in users)
-        has_questionable = any(u.needs_moderator or u.duplicate_appeals_banned or u.active_warning_count() > 0 for u in users)
+        cluster_users = [users_by_id[uid] for uid in uids if uid in users_by_id]
+        if len(cluster_users) < 2:
+            continue
+        has_banned = any(u.is_banned() for u in cluster_users)
+        has_questionable = any(u.needs_moderator or u.duplicate_appeals_banned or u.active_warning_count() > 0 for u in cluster_users)
         clusters.append({
             "ip": ip,
-            "user_count": len(users),
-            "users": users,
+            "user_count": len(cluster_users),
+            "users": cluster_users,
             "has_banned": has_banned,
             "has_questionable": has_questionable,
         })
 
-    # Sort clusters: those with banned/questionable users first
+    # Sort clusters: those with banned/questionable users first, then by cluster size
     clusters.sort(key=lambda c: (c["has_banned"], c["has_questionable"], c["user_count"]), reverse=True)
     return clusters[:limit]
 
