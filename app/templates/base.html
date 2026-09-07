@@ -1430,6 +1430,100 @@
   });
 })();
 </script>
+
+<!-- Moderator Warning Strike Prompt Modal -->
+<div id="bfhWarnPromptModal" class="bfh-q-overlay" aria-hidden="true" role="dialog" aria-labelledby="bfhWarnModalTitle">
+  <div class="bfh-q-dialog" style="max-width: 480px;">
+    <h5 id="bfhWarnModalTitle" class="text-warning">⚠️ Issue Warning Strike</h5>
+    <p class="small text-muted mb-3">
+      Issue a formal yellow card warning to <strong id="bfhWarnTargetUsername" class="text-info">user</strong>. A notification DM will be dispatched automatically.
+    </p>
+    <form id="bfhWarnPromptForm" method="post" action="#">
+      <!-- Preset Reason -->
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-muted d-block mb-1">Warning Infraction:</label>
+        <select name="preset_reason" id="bfhWarnPresetReason" class="form-select bg-black text-light border-secondary mb-2" style="font-size: 0.9rem;">
+          <option value="Offensive / Harassing comment or message">Offensive / Harassing comment or message</option>
+          <option value="Duplicate meme or joke reposting">Duplicate meme or joke reposting</option>
+          <option value="Inappropriate avatar or profile information">Inappropriate avatar or profile information</option>
+          <option value="Spamming or thread derailment">Spamming or thread derailment</option>
+          <option value="Vote manipulation / sockpuppeting warning">Vote manipulation / sockpuppeting warning</option>
+          <option value="Other">Other (custom notes below)</option>
+        </select>
+      </div>
+
+      <!-- Custom Reason -->
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-muted d-block mb-1">Details & Advice for User (sent via DM):</label>
+        <textarea name="notes" id="bfhWarnNotes" class="form-control bg-black text-light border-secondary" rows="2" placeholder="Explain what rule was broken and what they should fix..."></textarea>
+      </div>
+
+      <!-- Auto 24h Ban Checkbox -->
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" name="auto_ban" id="bfhWarnAutoBan" value="1">
+        <label class="form-check-label small text-warning" for="bfhWarnAutoBan">
+          Also apply a 24-hour suspension immediately
+        </label>
+      </div>
+
+      <div class="bfh-q-actions d-flex justify-content-end gap-2 mt-3">
+        <button type="button" class="btn btn-sm btn-outline-light" id="bfhWarnCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-warning">Issue Warning Strike</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  var modal = document.getElementById("bfhWarnPromptModal");
+  var form = document.getElementById("bfhWarnPromptForm");
+  var userSpan = document.getElementById("bfhWarnTargetUsername");
+  var cancelBtn = document.getElementById("bfhWarnCancelBtn");
+  if (!modal || !form) return;
+
+  function closeModal() {
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+  }
+
+  function openWarnModal(userId, username) {
+    form.action = "/moderation/warn/" + encodeURIComponent(userId);
+    userSpan.textContent = username || ("User #" + userId);
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+  }
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".bfh-warn-modal-btn");
+    if (btn) {
+      e.preventDefault();
+      var uid = btn.getAttribute("data-user-id");
+      var uname = btn.getAttribute("data-username");
+      openWarnModal(uid, uname);
+      return;
+    }
+    if (e.target === modal) {
+      closeModal();
+    }
+  });
+
+  if (cancelBtn) cancelBtn.addEventListener("click", closeModal);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && modal.classList.contains("is-open")) {
+      closeModal();
+    }
+  });
+
+  form.addEventListener("submit", function (e) {
+    if (!confirm("Issue formal warning strike to " + userSpan.textContent + "?")) {
+      e.preventDefault();
+      return false;
+    }
+  });
+})();
+</script>
 {% endif %}
 
 <!-- Global Live Timer JS for Banned Users and Queues -->

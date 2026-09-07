@@ -3634,11 +3634,190 @@ def moderator_unban_user(user_id):
     return redirect(request.referrer or url_for("main.moderators_room"))
 
 
+def get_sockpuppet_matches(limit: int = 35) -> list[dict]:
+    """Find IP addresses shared by multiple users, prioritized by banned/questionable accounts."""
+    from .models import LoginAudit, User
+    from sqlalchemy import func
+
+    # Find IPs used by 2+ distinct user_ids
+    shared_ips = (
+        db.session.query(LoginAudit.ip, func.count(func.distinct(LoginAudit.user_id)).label("ucount"))
+        .filter(LoginAudit.ip.isnot(None), LoginAudit.ip != "", LoginAudit.user_id.isnot(None))
+        .group_by(LoginAudit.ip)
+        .having(func.count(func.distinct(LoginAudit.user_id)) > 1)
+        .order_by(func.count(func.distinct(LoginAudit.user_id)).desc())
+        .limit(100)
+        .all()
+    )
+
+    now = datetime.utcnow()
+    clusters = []
+    for ip, count in shared_ips:
+        uids = [
+            r[0] for r in db.session.query(func.distinct(LoginAudit.user_id))
+            .filter(LoginAudit.ip == ip, LoginAudit.user_id.isnot(None))
+            .all()
+        ]
+        users = User.query.filter(User.id.in_(uids)).all()
+        if not users:
+            continue
+        has_banned = any(u.is_banned() for u in users)
+        has_questionable = any(u.needs_moderator or u.duplicate_appeals_banned or u.active_warning_count() > 0 for u in users)
+        clusters.append({
+            "ip": ip,
+            "user_count": len(users),
+            "users": users,
+            "has_banned": has_banned,
+            "has_questionable": has_questionable,
+        })
+
+    # Sort clusters: those with banned/questionable users first
+    clusters.sort(key=lambda c: (c["has_banned"], c["has_questionable"], c["user_count"]), reverse=True)
+    return clusters[:limit]
+
+
+def get_mod_team_stats() -> list[dict]:
+    """Calculate moderation action leaderboard from AdminNotification."""
+    from .models import AdminNotification, User
+    from sqlalchemy import func
+
+    rows = (
+        db.session.query(
+            AdminNotification.performed_by_id,
+            func.count(AdminNotification.id).label("total_actions"),
+            func.sum(case((AdminNotification.action.like("%ban%"), 1), else_=0)).label("ban_count"),
+            func.sum(case((AdminNotification.action.like("%Quarantine%"), 1), else_=0)).label("quarantine_count"),
+            func.sum(case((or_(AdminNotification.action.like("%resolved%"), AdminNotification.action.like("%dupe%")), 1), else_=0)).label("dupe_count"),
+            func.sum(case((AdminNotification.action.like("%Warning%"), 1), else_=0)).label("warn_count"),
+        )
+        .group_by(AdminNotification.performed_by_id)
+        .order_by(func.count(AdminNotification.id).desc())
+        .all()
+    )
+
+    stats = []
+    for r in rows:
+        u = User.query.get(r[0])
+        if u:
+            stats.append({
+                "user": u,
+                "total": r[1] or 0,
+                "bans": r[2] or 0,
+                "quarantines": r[3] or 0,
+                "dupes": r[4] or 0,
+                "warnings": r[5] or 0,
+            })
+    return stats
+
+
+@main_bp.route("/moderation/warn/<int:user_id>", methods=["POST"])
+@moderator_required
+def moderator_warn_user(user_id):
+    """Issue a formal warning strike to a user."""
+    from .models import UserWarning
+
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        flash("You cannot warn yourself.", "warning")
+        return redirect(request.referrer or url_for("main.user_profile", username=user.username))
+
+    if user.is_admin and not current_user.is_admin:
+        flash("You cannot issue a warning to an administrator.", "danger")
+        return redirect(request.referrer or url_for("main.user_profile", username=user.username))
+
+    preset = (request.form.get("preset_reason") or "").strip()
+    custom = (request.form.get("reason") or "").strip()
+    notes = (request.form.get("notes") or "").strip()
+    auto_ban = (request.form.get("auto_ban") or "").strip() in ("1", "true", "on", "yes")
+
+    reasons = []
+    if preset and preset != "Other":
+        reasons.append(preset)
+    if custom:
+        reasons.append(custom)
+    reason = " · ".join(reasons) if reasons else "Violation of community standards"
+
+    warning = UserWarning(
+        user_id=user.id,
+        issuer_id=current_user.id,
+        reason=reason[:255],
+        notes=notes or None,
+        is_active=True,
+    )
+    db.session.add(warning)
+    db.session.flush()
+
+    active_strikes = user.active_warning_count()
+
+    # If 3 or more strikes (or auto_ban chosen), apply 24h suspension automatically
+    applied_ban = False
+    if active_strikes >= 3 or auto_ban:
+        user.ban_until = datetime.utcnow() + timedelta(hours=24)
+        user.ban_reason = f"Accumulated {active_strikes} warning strikes: {reason[:120]}"
+        user.banned_by_id = current_user.id
+        user.banned_at = datetime.utcnow()
+        applied_ban = True
+
+    # Send formal DM notice
+    try:
+        mod_bot = _moderator_system_user()
+        ban_msg = "\n\n⛔ As you have reached 3 strikes (or a severe infraction), your account has also been suspended for 24 hours." if applied_ban else ""
+        dm = Message(
+            sender_id=mod_bot.id,
+            recipient_id=user.id,
+            subject=f"Official Warning (Strike #{active_strikes}/3)",
+            body=(
+                f"Hello {user.username},\n\n"
+                f"You have been issued a formal moderator warning strike (#{active_strikes}/3).\n\n"
+                f"Reason: {reason}\n"
+                f"{f'Details: {notes}' if notes else ''}\n\n"
+                f"Please adhere to the community guidelines. Reaching 3 strikes results in automatic account suspension.{ban_msg}"
+            ),
+        )
+        db.session.add(dm)
+    except Exception:
+        current_app.logger.exception("Failed to send warning DM")
+
+    note = AdminNotification(
+        action=f"Warning #{active_strikes}",
+        message=f"{current_user.username} gave strike #{active_strikes} to {user.username}. Reason: {reason}" + (" (24h ban triggered)" if applied_ban else ""),
+        performed_by_id=current_user.id,
+        target_user_id=user.id,
+    )
+    db.session.add(note)
+    db.session.commit()
+
+    if applied_ban:
+        flash(f"Warning strike #{active_strikes} issued to {user.username} and 24h ban applied.", "warning")
+    else:
+        flash(f"Warning strike #{active_strikes} issued to {user.username}.", "success")
+    return redirect(request.referrer or url_for("main.user_profile", username=user.username))
+
+
+@main_bp.route("/moderation/warnings/<int:warning_id>/dismiss", methods=["POST"])
+@moderator_required
+def moderator_dismiss_warning(warning_id):
+    from .models import UserWarning
+
+    warning = UserWarning.query.get_or_404(warning_id)
+    warning.is_active = False
+    note = AdminNotification(
+        action="Dismiss warning",
+        message=f"{current_user.username} dismissed warning #{warning.id} for {warning.user.username if warning.user else 'user'}.",
+        performed_by_id=current_user.id,
+        target_user_id=warning.user_id,
+    )
+    db.session.add(note)
+    db.session.commit()
+    flash("Warning strike dismissed.", "info")
+    return redirect(request.referrer or url_for("main.moderators_room"))
+
+
 @main_bp.route("/moderation/room")
 @moderator_required
 def moderators_room():
-    """Moderators Room: overview of active bans, mod noticeboard, and team actions."""
-    from .models import ModRoomMessage, AdminNotification, JokeDupePair, Joke, User
+    """Moderators Room: overview of active bans, warnings, sockpuppet detector, and mod noticeboard."""
+    from .models import ModRoomMessage, AdminNotification, JokeDupePair, Joke, User, UserWarning
 
     now = datetime.utcnow()
     banned_users = (
@@ -3658,6 +3837,12 @@ def moderators_room():
         .limit(50)
         .all()
     )
+    active_warnings = (
+        UserWarning.query.filter_by(is_active=True)
+        .order_by(UserWarning.created_at.desc())
+        .limit(40)
+        .all()
+    )
     mod_messages = (
         ModRoomMessage.query.order_by(ModRoomMessage.is_pinned.desc(), ModRoomMessage.created_at.desc())
         .limit(50)
@@ -3674,6 +3859,9 @@ def moderators_room():
         .all()
     )
 
+    sockpuppet_clusters = get_sockpuppet_matches(limit=25)
+    mod_stats = get_mod_team_stats()
+
     pending_review_count = approved_jokes_query().filter_by(review_status="pending").count()
     pending_dupe_count = JokeDupePair.query.filter_by(status="pending").count()
 
@@ -3682,9 +3870,12 @@ def moderators_room():
         banned_users=banned_users,
         recent_bans=recent_bans,
         suspicious_users=suspicious_users,
+        active_warnings=active_warnings,
         mod_messages=mod_messages,
         recent_actions=recent_actions,
         team_members=team_members,
+        sockpuppet_clusters=sockpuppet_clusters,
+        mod_stats=mod_stats,
         pending_review_count=pending_review_count,
         pending_dupe_count=pending_dupe_count,
         now=now,

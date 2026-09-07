@@ -167,9 +167,15 @@ class User(UserMixin, db.Model):
     )
     comments = db.relationship("Comment", backref="author", lazy=True)
     votes = db.relationship("Vote", backref="voter", lazy=True)
+    warnings = db.relationship(
+        "UserWarning", foreign_keys="UserWarning.user_id", backref="user", lazy=True, cascade="all, delete-orphan"
+    )
 
     def is_banned(self) -> bool:
         return self.ban_until is not None and self.ban_until > datetime.utcnow()
+
+    def active_warning_count(self) -> int:
+        return sum(1 for w in (self.warnings or []) if w.is_active)
 
     # NEW: profile (one-to-one)
     profile = db.relationship(
@@ -750,6 +756,23 @@ class ModRoomMessage(db.Model):
     is_pinned = db.Column(db.Boolean, default=False, nullable=False)
 
     author = db.relationship("User", foreign_keys=[user_id])
+
+
+class UserWarning(db.Model):
+    """Formal warning strike issued to a user by a moderator/admin."""
+
+    __tablename__ = "user_warnings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    issuer_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    reason = db.Column(db.String(255), nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+
+    issuer = db.relationship("User", foreign_keys=[issuer_id])
+
 
 
 

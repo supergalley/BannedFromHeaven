@@ -27,14 +27,14 @@
   </div>
   <div class="col-6 col-md-3">
     <div class="card bg-dark text-light border-warning text-center p-2">
-      <div class="fs-4 fw-bold text-warning">{{ pending_review_count }}</div>
-      <div class="small text-muted">Posts in Review</div>
+      <div class="fs-4 fw-bold text-warning">{{ active_warnings|length }}</div>
+      <div class="small text-muted">Active Warning Strikes</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="card bg-dark text-light border-info text-center p-2">
-      <div class="fs-4 fw-bold text-info">{{ pending_dupe_count }}</div>
-      <div class="small text-muted">Duplicate Pairs</div>
+      <div class="fs-4 fw-bold text-info">{{ sockpuppet_clusters|length }}</div>
+      <div class="small text-muted">Shared IP Clusters</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
@@ -46,8 +46,9 @@
 </div>
 
 <div class="row g-4">
-  <!-- Left Column: Active Bans & Questionable Users -->
+  <!-- Left Column: Bans, Warnings, Sockpuppets -->
   <div class="col-lg-7">
+
     <!-- Active Bans Section -->
     <div class="card bg-dark text-light border-danger mb-4">
       <div class="card-header bg-danger bg-opacity-25 d-flex justify-content-between align-items-center">
@@ -122,23 +123,149 @@
       </div>
     </div>
 
-    <!-- Suspicious / Questionable Accounts Watchlist -->
+    <!-- Active Warning Strikes Section (Feature 1) -->
     <div class="card bg-dark text-light border-warning mb-4">
-      <div class="card-header bg-warning bg-opacity-10 d-flex justify-content-between align-items-center">
-        <h2 class="h5 mb-0 text-warning">⚠️ Questionable Watchlist</h2>
-        <span class="small text-muted">{{ suspicious_users|length }} members</span>
+      <div class="card-header bg-warning bg-opacity-25 d-flex justify-content-between align-items-center">
+        <h2 class="h5 mb-0 text-warning">⚠️ Active Warning Strikes ({{ active_warnings|length }})</h2>
+        <span class="small text-muted">3-Strike System</span>
       </div>
       <div class="card-body p-0">
-        {% if not suspicious_users %}
-          <div class="p-3 text-muted text-center">No accounts flagged for review.</div>
+        {% if not active_warnings %}
+          <div class="p-3 text-muted text-center">No active warning strikes.</div>
         {% else %}
           <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
             <table class="table table-dark table-sm table-hover mb-0 align-middle">
               <thead>
                 <tr>
                   <th>User</th>
+                  <th>Reason & Context</th>
+                  <th>Issued By</th>
+                  <th>Date</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for w in active_warnings %}
+                  <tr>
+                    <td>
+                      <a href="{{ url_for('main.user_profile', username=w.user.username if w.user else '#') }}" class="fw-bold text-light text-decoration-none">
+                        {{ w.user.username if w.user else 'User #' ~ w.user_id }}
+                      </a>
+                      <span class="badge bg-warning text-dark ms-1">Strike</span>
+                    </td>
+                    <td>
+                      <div class="small fw-semibold text-warning">{{ w.reason }}</div>
+                      {% if w.notes %}
+                        <div class="small text-muted text-truncate" style="max-width: 220px;" title="{{ w.notes }}">{{ w.notes }}</div>
+                      {% endif %}
+                    </td>
+                    <td class="small text-muted">
+                      {{ w.issuer.username if w.issuer else 'Mod' }}
+                    </td>
+                    <td class="small text-muted font-monospace">
+                      {{ w.created_at.strftime('%m-%d %H:%M') if w.created_at else '' }}
+                    </td>
+                    <td>
+                      <div class="d-flex gap-1">
+                        <form method="post" action="{{ url_for('main.moderator_dismiss_warning', warning_id=w.id) }}" class="d-inline">
+                          <button class="btn btn-xs btn-outline-secondary py-0 px-2" title="Dismiss strike"
+                                  onclick="return confirm('Dismiss this warning strike?');">
+                            Dismiss
+                          </button>
+                        </form>
+                        {% if w.user and not w.user.is_banned() %}
+                          <button type="button"
+                                  class="btn btn-xs btn-outline-danger py-0 px-2 bfh-ban-modal-btn"
+                                  data-user-id="{{ w.user.id }}"
+                                  data-username="{{ w.user.username }}"
+                                  data-current-reason="{{ w.reason }}">
+                            Ban
+                          </button>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Sockpuppet & Alt Account Detector (Feature 2) -->
+    <div class="card bg-dark text-light border-info mb-4">
+      <div class="card-header bg-info bg-opacity-25 d-flex justify-content-between align-items-center">
+        <h2 class="h5 mb-0 text-info">🕵️ Sockpuppet & Alt Account Detector</h2>
+        <span class="small text-muted">Shared IP Clusters</span>
+      </div>
+      <div class="card-body p-0">
+        {% if not sockpuppet_clusters %}
+          <div class="p-3 text-muted text-center">No multi-account IP clusters detected.</div>
+        {% else %}
+          <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
+            <table class="table table-dark table-sm table-hover mb-0 align-middle">
+              <thead>
+                <tr>
+                  <th>Shared IP</th>
+                  <th>Matching Accounts</th>
                   <th>Status</th>
-                  <th>Reputation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in sockpuppet_clusters %}
+                  <tr class="{% if c.has_banned %}table-danger text-dark{% elif c.has_questionable %}table-warning text-dark{% endif %}">
+                    <td>
+                      <code class="text-light bg-black p-1 rounded small">{{ c.ip }}</code>
+                      <div class="small text-muted">{{ c.user_count }} accounts</div>
+                    </td>
+                    <td>
+                      <div class="d-flex flex-wrap gap-1">
+                        {% for u in c.users %}
+                          <span class="badge {% if u.is_banned() %}bg-danger{% elif u.needs_moderator or u.active_warning_count() > 0 %}bg-warning text-dark{% else %}bg-secondary{% endif %} p-1">
+                            <a href="{{ url_for('main.user_profile', username=u.username) }}" class="text-white text-decoration-none">
+                              {{ u.username }}
+                            </a>
+                            {% if u.is_banned() %}(⛔ banned){% elif u.active_warning_count() > 0 %}(⚠️ {{ u.active_warning_count() }}){% endif %}
+                          </span>
+                        {% endfor %}
+                      </div>
+                    </td>
+                    <td>
+                      {% if c.has_banned %}
+                        <span class="badge bg-danger">Banned User on IP</span>
+                      {% elif c.has_questionable %}
+                        <span class="badge bg-warning text-dark">Watchlist Match</span>
+                      {% else %}
+                        <span class="badge bg-secondary">Shared IP</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Suspicious / Questionable Accounts Watchlist -->
+    <div class="card bg-dark text-light border-secondary mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0 text-warning">📋 Submission Review Watchlist</h2>
+        <span class="small text-muted">{{ suspicious_users|length }} members</span>
+      </div>
+      <div class="card-body p-0">
+        {% if not suspicious_users %}
+          <div class="p-3 text-muted text-center">No accounts currently flagged for post review.</div>
+        {% else %}
+          <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
+            <table class="table table-dark table-sm table-hover mb-0 align-middle">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Status</th>
+                  <th>Rep</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -152,7 +279,7 @@
                     </td>
                     <td>
                       {% if su.needs_moderator %}
-                        <span class="badge bg-warning text-dark">Submissions Under Review</span>
+                        <span class="badge bg-warning text-dark">Review Required</span>
                       {% endif %}
                       {% if su.duplicate_appeals_banned %}
                         <span class="badge bg-danger">Appeals Blocked</span>
@@ -163,7 +290,7 @@
                       <div class="d-flex gap-1">
                         {% if su.duplicate_appeals_banned %}
                           <form method="post" action="{{ url_for('main.toggle_user_appeal_ban', user_id=su.id) }}" class="d-inline">
-                            <button class="btn btn-xs btn-outline-info py-0 px-1" title="Unblock appeal rights">
+                            <button class="btn btn-xs btn-outline-info py-0 px-1" title="Unblock appeals">
                               Allow Appeals
                             </button>
                           </form>
@@ -184,37 +311,11 @@
         {% endif %}
       </div>
     </div>
-
-    <!-- Recent Mod Actions Feed -->
-    <div class="card bg-dark text-light border-secondary">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <h2 class="h6 mb-0">📜 Recent Team Activity Log</h2>
-        <span class="small text-muted">Last {{ recent_actions|length }} events</span>
-      </div>
-      <div class="card-body p-2" style="max-height: 260px; overflow-y: auto; font-size: 0.85rem;">
-        {% if not recent_actions %}
-          <div class="text-muted text-center p-2">No logged actions yet.</div>
-        {% else %}
-          <ul class="list-unstyled mb-0">
-            {% for a in recent_actions %}
-              <li class="border-bottom border-secondary py-1 d-flex justify-content-between gap-2">
-                <div>
-                  <span class="badge bg-dark border border-secondary text-info">{{ a.action }}</span>
-                  <span class="text-light">{{ a.message }}</span>
-                </div>
-                <span class="text-muted font-monospace small text-nowrap">
-                  {{ a.created_at.strftime('%m-%d %H:%M') if a.created_at else '' }}
-                </span>
-              </li>
-            {% endfor %}
-          </ul>
-        {% endif %}
-      </div>
-    </div>
   </div>
 
-  <!-- Right Column: Mod Noticeboard & Chat / Team -->
+  <!-- Right Column: Noticeboard, Mod Stats, Team Activity -->
   <div class="col-lg-5">
+
     <!-- Noticeboard Card -->
     <div class="card bg-dark text-light border-primary mb-4">
       <div class="card-header bg-primary bg-opacity-25 d-flex justify-content-between align-items-center">
@@ -242,7 +343,7 @@
         <hr class="border-secondary my-3">
 
         <!-- Mod Messages Feed -->
-        <div class="mod-notes-feed" style="max-height: 460px; overflow-y: auto;">
+        <div class="mod-notes-feed" style="max-height: 380px; overflow-y: auto;">
           {% if not mod_messages %}
             <div class="text-muted text-center py-3">No pinned notes yet. Leave one above!</div>
           {% else %}
@@ -273,54 +374,75 @@
       </div>
     </div>
 
-    <!-- Mod Team Roster -->
-    <div class="card bg-dark text-light border-secondary">
-      <div class="card-header">
-        <h2 class="h6 mb-0">🛡️ Moderator & Admin Roster</h2>
+    <!-- Mod Team Activity & Leaderboard (Feature 3) -->
+    <div class="card bg-dark text-light border-success mb-4">
+      <div class="card-header bg-success bg-opacity-25 d-flex justify-content-between align-items-center">
+        <h2 class="h5 mb-0 text-success">🏆 Mod Team Activity</h2>
+        <span class="small text-muted">All-Time Actions</span>
       </div>
-      <div class="card-body p-2">
-        <div class="d-flex flex-wrap gap-2">
-          {% for m in team_members %}
-            <span class="badge {% if m.is_admin %}bg-danger{% else %}bg-primary{% endif %} p-2">
-              {{ '👑' if m.is_admin else '🛡️' }} {{ m.username }}
-            </span>
-          {% endfor %}
-        </div>
+      <div class="card-body p-0">
+        {% if not mod_stats %}
+          <div class="p-3 text-muted text-center">No moderation action data yet.</div>
+        {% else %}
+          <div class="table-responsive" style="max-height: 260px; overflow-y: auto;">
+            <table class="table table-dark table-sm table-hover mb-0 align-middle">
+              <thead>
+                <tr>
+                  <th>Moderator</th>
+                  <th class="text-center">Quarantines</th>
+                  <th class="text-center">Bans</th>
+                  <th class="text-center">Warnings</th>
+                  <th class="text-center">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for s in mod_stats %}
+                  <tr>
+                    <td>
+                      <strong class="text-info">{{ s.user.username }}</strong>
+                      {% if s.user.is_admin %}<span class="badge bg-danger ms-1">Admin</span>{% endif %}
+                    </td>
+                    <td class="text-center">{{ s.quarantines }}</td>
+                    <td class="text-center">{{ s.bans }}</td>
+                    <td class="text-center">{{ s.warnings }}</td>
+                    <td class="text-center fw-bold text-success">{{ s.total }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
       </div>
     </div>
+
+    <!-- Recent Team Activity Feed -->
+    <div class="card bg-dark text-light border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0">📜 Recent Team Activity Log</h2>
+        <span class="small text-muted">Last {{ recent_actions|length }} events</span>
+      </div>
+      <div class="card-body p-2" style="max-height: 220px; overflow-y: auto; font-size: 0.85rem;">
+        {% if not recent_actions %}
+          <div class="text-muted text-center p-2">No logged actions yet.</div>
+        {% else %}
+          <ul class="list-unstyled mb-0">
+            {% for a in recent_actions %}
+              <li class="border-bottom border-secondary py-1 d-flex justify-content-between gap-2">
+                <div>
+                  <span class="badge bg-dark border border-secondary text-info">{{ a.action }}</span>
+                  <span class="text-light">{{ a.message }}</span>
+                </div>
+                <span class="text-muted font-monospace small text-nowrap">
+                  {{ a.created_at.strftime('%m-%d %H:%M') if a.created_at else '' }}
+                </span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </div>
+
   </div>
 </div>
-
-<!-- Shared JavaScript Timer for Live Ban Expirations -->
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  function updateTimers() {
-    const now = new Date().getTime();
-    document.querySelectorAll(".bfh-timer").forEach((el) => {
-      const expStr = el.getAttribute("data-expire");
-      if (!expStr) return;
-      const expTime = new Date(expStr).getTime();
-      const diff = expTime - now;
-      if (diff <= 0) {
-        el.textContent = "Expired";
-        el.className = "badge bg-secondary font-monospace bfh-timer";
-        return;
-      }
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const secs = Math.floor((diff % (1000 * 60)) / 1000);
-
-      if (days > 0) {
-        el.textContent = `${days}d ${hours}h ${mins}m ${secs}s`;
-      } else {
-        el.textContent = `${hours}h ${mins}m ${secs}s`;
-      }
-    });
-  }
-  updateTimers();
-  setInterval(updateTimers, 1000);
-});
-</script>
 
 {% endblock %}
