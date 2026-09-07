@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% block title %}Moderators Room – BannedFromHeaven.com{% endblock %}
+{% block content %}
+
+<!-- Header & Nav Tabs -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 mb-3">
+  <h1 class="h3 mb-0">💬 Moderators Room</h1>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-sm btn-outline-light" href="{{ url_for('main.moderation_review') }}">
+      Review Queue {% if pending_review_count %}({{ pending_review_count }}){% endif %}
+    </a>
+    <a class="btn btn-sm btn-outline-light" href="{{ url_for('main.moderation_duplicates') }}">
+      Duplicates {% if pending_dupe_count %}({{ pending_dupe_count }}){% endif %}
+    </a>
+    <a class="btn btn-sm btn-outline-info" href="{{ url_for('main.moderation_categories') }}">Categories</a>
+    <span class="btn btn-sm btn-primary active disabled">Room</span>
+  </div>
+</div>
+
+<!-- Quick Stat Badges -->
+<div class="row g-2 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark text-light border-danger text-center p-2">
+      <div class="fs-4 fw-bold text-danger">{{ banned_users|length }}</div>
+      <div class="small text-muted">Active Bans</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark text-light border-warning text-center p-2">
+      <div class="fs-4 fw-bold text-warning">{{ pending_review_count }}</div>
+      <div class="small text-muted">Posts in Review</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark text-light border-info text-center p-2">
+      <div class="fs-4 fw-bold text-info">{{ pending_dupe_count }}</div>
+      <div class="small text-muted">Duplicate Pairs</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark text-light border-secondary text-center p-2">
+      <div class="fs-4 fw-bold text-success">{{ team_members|length }}</div>
+      <div class="small text-muted">Moderator Team</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Left Column: Active Bans & Questionable Users -->
+  <div class="col-lg-7">
+    <!-- Active Bans Section -->
+    <div class="card bg-dark text-light border-danger mb-4">
+      <div class="card-header bg-danger bg-opacity-25 d-flex justify-content-between align-items-center">
+        <h2 class="h5 mb-0 text-danger">⛔ Currently Banned Members ({{ banned_users|length }})</h2>
+        <span class="small text-muted">Live Run-Out</span>
+      </div>
+      <div class="card-body p-0">
+        {% if not banned_users %}
+          <div class="p-3 text-muted text-center">
+            🎉 No members are currently banned. The heavens are at peace!
+          </div>
+        {% else %}
+          <div class="table-responsive">
+            <table class="table table-dark table-hover table-striped mb-0 align-middle">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Reason</th>
+                  <th>Banned By</th>
+                  <th>Remaining</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for u in banned_users %}
+                  <tr>
+                    <td>
+                      <a href="{{ url_for('main.user_profile', username=u.username) }}" class="fw-bold text-warning text-decoration-none">
+                        {{ u.username }}
+                      </a>
+                    </td>
+                    <td>
+                      <span class="badge bg-secondary text-wrap" style="max-width: 180px; text-align: left;">
+                        {{ u.ban_reason or 'Violation of rules' }}
+                      </span>
+                    </td>
+                    <td class="small text-muted">
+                      {{ u.banned_by.username if u.banned_by else 'Admin' }}
+                    </td>
+                    <td>
+                      <span class="badge bg-danger font-monospace bfh-timer"
+                            data-expire="{{ u.ban_until.isoformat() }}Z"
+                            title="Expires {{ u.ban_until.strftime('%Y-%m-%d %H:%M') }} UTC">
+                        calculating...
+                      </span>
+                    </td>
+                    <td>
+                      <div class="d-flex gap-1">
+                        <form method="post" action="{{ url_for('main.moderator_unban_user', user_id=u.id) }}" class="d-inline">
+                          <button class="btn btn-xs btn-outline-success py-0 px-2"
+                                  title="Lift ban immediately"
+                                  onclick="return confirm('Lift ban for {{ u.username }} early?');">
+                            Unban
+                          </button>
+                        </form>
+                        <button type="button"
+                                class="btn btn-xs btn-outline-warning py-0 px-2 bfh-ban-modal-btn"
+                                data-user-id="{{ u.id }}"
+                                data-username="{{ u.username }}"
+                                data-current-reason="{{ u.ban_reason or '' }}"
+                                title="Extend or edit ban">
+                          Edit
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Suspicious / Questionable Accounts Watchlist -->
+    <div class="card bg-dark text-light border-warning mb-4">
+      <div class="card-header bg-warning bg-opacity-10 d-flex justify-content-between align-items-center">
+        <h2 class="h5 mb-0 text-warning">⚠️ Questionable Watchlist</h2>
+        <span class="small text-muted">{{ suspicious_users|length }} members</span>
+      </div>
+      <div class="card-body p-0">
+        {% if not suspicious_users %}
+          <div class="p-3 text-muted text-center">No accounts flagged for review.</div>
+        {% else %}
+          <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+            <table class="table table-dark table-sm table-hover mb-0 align-middle">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Status</th>
+                  <th>Reputation</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for su in suspicious_users %}
+                  <tr>
+                    <td>
+                      <a href="{{ url_for('main.user_profile', username=su.username) }}" class="text-light text-decoration-none">
+                        {{ su.username }}
+                      </a>
+                    </td>
+                    <td>
+                      {% if su.needs_moderator %}
+                        <span class="badge bg-warning text-dark">Submissions Under Review</span>
+                      {% endif %}
+                      {% if su.duplicate_appeals_banned %}
+                        <span class="badge bg-danger">Appeals Blocked</span>
+                      {% endif %}
+                    </td>
+                    <td>{{ su.reputation }}</td>
+                    <td>
+                      <div class="d-flex gap-1">
+                        {% if su.duplicate_appeals_banned %}
+                          <form method="post" action="{{ url_for('main.toggle_user_appeal_ban', user_id=su.id) }}" class="d-inline">
+                            <button class="btn btn-xs btn-outline-info py-0 px-1" title="Unblock appeal rights">
+                              Allow Appeals
+                            </button>
+                          </form>
+                        {% endif %}
+                        <button type="button"
+                                class="btn btn-xs btn-outline-danger py-0 px-2 bfh-ban-modal-btn"
+                                data-user-id="{{ su.id }}"
+                                data-username="{{ su.username }}">
+                          Ban
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Recent Mod Actions Feed -->
+    <div class="card bg-dark text-light border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0">📜 Recent Team Activity Log</h2>
+        <span class="small text-muted">Last {{ recent_actions|length }} events</span>
+      </div>
+      <div class="card-body p-2" style="max-height: 260px; overflow-y: auto; font-size: 0.85rem;">
+        {% if not recent_actions %}
+          <div class="text-muted text-center p-2">No logged actions yet.</div>
+        {% else %}
+          <ul class="list-unstyled mb-0">
+            {% for a in recent_actions %}
+              <li class="border-bottom border-secondary py-1 d-flex justify-content-between gap-2">
+                <div>
+                  <span class="badge bg-dark border border-secondary text-info">{{ a.action }}</span>
+                  <span class="text-light">{{ a.message }}</span>
+                </div>
+                <span class="text-muted font-monospace small text-nowrap">
+                  {{ a.created_at.strftime('%m-%d %H:%M') if a.created_at else '' }}
+                </span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Mod Noticeboard & Chat / Team -->
+  <div class="col-lg-5">
+    <!-- Noticeboard Card -->
+    <div class="card bg-dark text-light border-primary mb-4">
+      <div class="card-header bg-primary bg-opacity-25 d-flex justify-content-between align-items-center">
+        <h2 class="h5 mb-0 text-info">📌 Mod Team Noticeboard</h2>
+        <span class="small text-muted">Internal Notes</span>
+      </div>
+      <div class="card-body">
+        <!-- Post New Note Form -->
+        <form method="post" action="{{ url_for('main.mod_room_post_message') }}" class="mb-3">
+          <div class="mb-2">
+            <textarea name="body" class="form-control bg-black text-light border-secondary" rows="2"
+                      placeholder="Leave a note, suspicious user warning, or shift update for the mod team..." required></textarea>
+          </div>
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="is_pinned" id="modPinCheck" value="1">
+              <label class="form-check-label small text-muted" for="modPinCheck">
+                📌 Pin to top
+              </label>
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary">Post Note</button>
+          </div>
+        </form>
+
+        <hr class="border-secondary my-3">
+
+        <!-- Mod Messages Feed -->
+        <div class="mod-notes-feed" style="max-height: 460px; overflow-y: auto;">
+          {% if not mod_messages %}
+            <div class="text-muted text-center py-3">No pinned notes yet. Leave one above!</div>
+          {% else %}
+            {% for m in mod_messages %}
+              <div class="card bg-black text-light border-{% if m.is_pinned %}warning{% else %}secondary{% endif %} mb-2 p-2">
+                <div class="d-flex justify-content-between align-items-start gap-1 mb-1">
+                  <div>
+                    {% if m.is_pinned %}
+                      <span class="badge bg-warning text-dark me-1">📌 PINNED</span>
+                    {% endif %}
+                    <strong class="text-info">{{ m.author.username if m.author else 'Mod' }}</strong>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="small text-muted font-monospace">{{ m.created_at.strftime('%Y-%m-%d %H:%M') }} UTC</span>
+                    {% if m.user_id == current_user.id or current_user.is_admin %}
+                      <form method="post" action="{{ url_for('main.mod_room_delete_message', message_id=m.id) }}" class="d-inline">
+                        <button class="btn btn-link text-danger p-0 text-decoration-none small" title="Delete note"
+                                onclick="return confirm('Delete this note?');">✕</button>
+                      </form>
+                    {% endif %}
+                  </div>
+                </div>
+                <div class="small" style="white-space: pre-wrap; word-break: break-word;">{{ m.body }}</div>
+              </div>
+            {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Mod Team Roster -->
+    <div class="card bg-dark text-light border-secondary">
+      <div class="card-header">
+        <h2 class="h6 mb-0">🛡️ Moderator & Admin Roster</h2>
+      </div>
+      <div class="card-body p-2">
+        <div class="d-flex flex-wrap gap-2">
+          {% for m in team_members %}
+            <span class="badge {% if m.is_admin %}bg-danger{% else %}bg-primary{% endif %} p-2">
+              {{ '👑' if m.is_admin else '🛡️' }} {{ m.username }}
+            </span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Shared JavaScript Timer for Live Ban Expirations -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  function updateTimers() {
+    const now = new Date().getTime();
+    document.querySelectorAll(".bfh-timer").forEach((el) => {
+      const expStr = el.getAttribute("data-expire");
+      if (!expStr) return;
+      const expTime = new Date(expStr).getTime();
+      const diff = expTime - now;
+      if (diff <= 0) {
+        el.textContent = "Expired";
+        el.className = "badge bg-secondary font-monospace bfh-timer";
+        return;
+      }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+      if (days > 0) {
+        el.textContent = `${days}d ${hours}h ${mins}m ${secs}s`;
+      } else {
+        el.textContent = `${hours}h ${mins}m ${secs}s`;
+      }
+    });
+  }
+  updateTimers();
+  setInterval(updateTimers, 1000);
+});
+</script>
+
+{% endblock %}

@@ -155,6 +155,11 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     reputation = db.Column(db.Integer, default=0, nullable=False)
     ban_until = db.Column(db.DateTime, nullable=True)
+    ban_reason = db.Column(db.String(255), nullable=True)
+    banned_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    banned_at = db.Column(db.DateTime, nullable=True)
+
+    banned_by = db.relationship("User", foreign_keys=[banned_by_id], remote_side="User.id")
 
     # Existing relationships
     jokes = db.relationship(
@@ -731,6 +736,21 @@ class AdminNotification(db.Model):
     performed_by = db.relationship("User", foreign_keys=[performed_by_id])
     target_user = db.relationship("User", foreign_keys=[target_user_id])
     target_joke = db.relationship("Joke")
+
+
+class ModRoomMessage(db.Model):
+    """Internal message/note posted by moderators/admins in the Moderators Room."""
+
+    __tablename__ = "mod_room_messages"
+
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    is_pinned = db.Column(db.Boolean, default=False, nullable=False)
+
+    author = db.relationship("User", foreign_keys=[user_id])
+
 
 
 # ---------------------------------------------------------------------------

@@ -3503,9 +3503,27 @@ def block_user(user_id):
     return redirect(request.referrer or url_for("main.inbox"))
 
 
+def _moderator_system_user() -> User:
+    """Shared system account for automated moderator DMs."""
+    import secrets
+
+    moderator = User.query.filter_by(username="Moderator").first()
+    if not moderator:
+        moderator = User(
+            username="Moderator",
+            email="moderator@bannedfromheaven.local",
+            needs_moderator=False,
+        )
+        moderator.set_password(secrets.token_urlsafe(32))
+        db.session.add(moderator)
+        db.session.flush()
+    return moderator
+
+
+@main_bp.route("/moderation/ban/<int:user_id>", methods=["POST"])
 @main_bp.route("/moderation/ban24/<int:user_id>", methods=["POST"])
 @moderator_required
-def moderator_ban_24h(user_id):
+def moderator_ban_user(user_id):
     user = User.query.get_or_404(user_id)
 
     if user.id == current_user.id:
@@ -3514,26 +3532,216 @@ def moderator_ban_24h(user_id):
             request.referrer or url_for("main.user_profile", username=user.username)
         )
 
-    if user.is_admin:
+    if user.is_admin and not current_user.is_admin:
         flash("You can't ban an admin.", "danger")
         return redirect(
             request.referrer or url_for("main.user_profile", username=user.username)
         )
 
-    user.ban_until = datetime.utcnow() + timedelta(hours=24)
+    period = (request.form.get("period") or "24h").strip().lower()
+    custom_hours = request.form.get("custom_hours", type=int)
+    preset_reason = (request.form.get("preset_reason") or "").strip()
+    custom_reason = (request.form.get("reason") or "").strip()
+    
+    # Combine preset + custom reasons if both provided
+    reasons = []
+    if preset_reason and preset_reason != "Other":
+        reasons.append(preset_reason)
+    if custom_reason:
+        reasons.append(custom_reason)
+    reason = " · ".join(reasons) if reasons else "Violation of site rules"
+
+    now = datetime.utcnow()
+    if period == "24h":
+        user.ban_until = now + timedelta(hours=24)
+        action_label = "24h ban"
+    elif period == "48h":
+        user.ban_until = now + timedelta(hours=48)
+        action_label = "48h ban"
+    elif period == "7d":
+        user.ban_until = now + timedelta(days=7)
+        action_label = "7d ban"
+    elif period == "30d":
+        user.ban_until = now + timedelta(days=30)
+        action_label = "30d ban"
+    elif period == "permanent":
+        user.ban_until = now + timedelta(days=3650)
+        action_label = "Permanent ban"
+    elif period == "custom" and custom_hours and custom_hours > 0:
+        user.ban_until = now + timedelta(hours=custom_hours)
+        action_label = f"{custom_hours}h ban"
+    elif period == "clear":
+        user.ban_until = None
+        user.ban_reason = None
+        action_label = "Clear ban"
+    else:
+        user.ban_until = now + timedelta(hours=24)
+        action_label = "24h ban"
+
+    if user.ban_until:
+        user.ban_reason = reason[:255]
+        user.banned_by_id = current_user.id
+        user.banned_at = now
+
+        # Send DM notice to user
+        try:
+            mod_bot = _moderator_system_user()
+            until_str = user.ban_until.strftime("%d-%m-%Y %H:%M UTC") if period != "permanent" else "Permanent"
+            dm = Message(
+                sender_id=mod_bot.id,
+                recipient_id=user.id,
+                subject="Account Suspension Notice",
+                body=(
+                    f"Hello {user.username},\n\n"
+                    f"Your account has been suspended until {until_str}.\n\n"
+                    f"Reason: {user.ban_reason}\n\n"
+                    f"While suspended, you can browse the site but submitting jokes, commenting, and voting are disabled.\n"
+                ),
+            )
+            db.session.add(dm)
+        except Exception:
+            current_app.logger.exception("Failed to send ban DM notice")
 
     note = AdminNotification(
-        action="24h ban",
-        message=f"{current_user.username} banned {user.username} for 24 hours.",
+        action=action_label,
+        message=f"{current_user.username} applied {action_label} to {user.username}. Reason: {reason}",
         performed_by_id=current_user.id,
         target_user_id=user.id,
     )
     db.session.add(note)
     db.session.commit()
-    flash("User banned for 24 hours.", "success")
+    flash(f"User {user.username} ban updated ({action_label}).", "success")
     return redirect(
         request.referrer or url_for("main.user_profile", username=user.username)
     )
+
+
+@main_bp.route("/moderation/unban/<int:user_id>", methods=["POST"])
+@moderator_required
+def moderator_unban_user(user_id):
+    user = User.query.get_or_404(user_id)
+    user.ban_until = None
+    user.ban_reason = None
+    note = AdminNotification(
+        action="Clear ban",
+        message=f"{current_user.username} lifted ban for {user.username}.",
+        performed_by_id=current_user.id,
+        target_user_id=user.id,
+    )
+    db.session.add(note)
+    db.session.commit()
+    flash(f"Ban lifted for {user.username}.", "success")
+    return redirect(request.referrer or url_for("main.moderators_room"))
+
+
+@main_bp.route("/moderation/room")
+@moderator_required
+def moderators_room():
+    """Moderators Room: overview of active bans, mod noticeboard, and team actions."""
+    from .models import ModRoomMessage, AdminNotification, JokeDupePair, Joke, User
+
+    now = datetime.utcnow()
+    banned_users = (
+        User.query.filter(User.ban_until.isnot(None), User.ban_until > now)
+        .order_by(User.ban_until.asc())
+        .all()
+    )
+    recent_bans = (
+        User.query.filter(User.banned_at.isnot(None))
+        .order_by(User.banned_at.desc())
+        .limit(25)
+        .all()
+    )
+    suspicious_users = (
+        User.query.filter(or_(User.needs_moderator.is_(True), User.duplicate_appeals_banned.is_(True)))
+        .order_by(User.id.desc())
+        .limit(50)
+        .all()
+    )
+    mod_messages = (
+        ModRoomMessage.query.order_by(ModRoomMessage.is_pinned.desc(), ModRoomMessage.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    recent_actions = (
+        AdminNotification.query.order_by(AdminNotification.created_at.desc())
+        .limit(40)
+        .all()
+    )
+    team_members = (
+        User.query.filter(or_(User.is_admin.is_(True), User.is_moderator.is_(True)))
+        .order_by(User.is_admin.desc(), User.username.asc())
+        .all()
+    )
+
+    pending_review_count = approved_jokes_query().filter_by(review_status="pending").count()
+    pending_dupe_count = JokeDupePair.query.filter_by(status="pending").count()
+
+    return render_template(
+        "moderation_room.html",
+        banned_users=banned_users,
+        recent_bans=recent_bans,
+        suspicious_users=suspicious_users,
+        mod_messages=mod_messages,
+        recent_actions=recent_actions,
+        team_members=team_members,
+        pending_review_count=pending_review_count,
+        pending_dupe_count=pending_dupe_count,
+        now=now,
+    )
+
+
+@main_bp.route("/moderation/room/messages", methods=["POST"])
+@moderator_required
+def mod_room_post_message():
+    from .models import ModRoomMessage
+
+    body = (request.form.get("body") or "").strip()
+    if not body:
+        flash("Message content cannot be empty.", "warning")
+        return redirect(url_for("main.moderators_room"))
+
+    is_pinned = (request.form.get("is_pinned") or "").strip() in ("1", "true", "on", "yes")
+    msg = ModRoomMessage(
+        user_id=current_user.id,
+        body=body,
+        is_pinned=is_pinned if current_user.is_admin or current_user.is_moderator else False,
+    )
+    db.session.add(msg)
+    db.session.commit()
+    flash("Moderator note posted.", "success")
+    return redirect(url_for("main.moderators_room"))
+
+
+@main_bp.route("/moderation/room/messages/<int:message_id>/delete", methods=["POST"])
+@moderator_required
+def mod_room_delete_message(message_id):
+    from .models import ModRoomMessage
+
+    msg = ModRoomMessage.query.get_or_404(message_id)
+    if msg.user_id != current_user.id and not current_user.is_admin:
+        abort(403)
+    db.session.delete(msg)
+    db.session.commit()
+    flash("Note deleted.", "success")
+    return redirect(url_for("main.moderators_room"))
+
+
+@main_bp.route("/moderation/users/<int:user_id>/toggle-appeal-ban", methods=["POST"])
+@moderator_required
+def toggle_user_appeal_ban(user_id):
+    user = User.query.get_or_404(user_id)
+    user.duplicate_appeals_banned = not bool(user.duplicate_appeals_banned)
+    note = AdminNotification(
+        action="Toggle appeal ban",
+        message=f"{current_user.username} set duplicate_appeals_banned={user.duplicate_appeals_banned} for {user.username}.",
+        performed_by_id=current_user.id,
+        target_user_id=user.id,
+    )
+    db.session.add(note)
+    db.session.commit()
+    flash(f"Appeal privileges for {user.username} updated (banned={user.duplicate_appeals_banned}).", "info")
+    return redirect(request.referrer or url_for("main.moderators_room"))
 
 @main_bp.route("/moderation/jokes/<int:joke_id>/toggle-author-review", methods=["POST"])
 @moderator_required

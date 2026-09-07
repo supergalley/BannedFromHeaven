@@ -1113,9 +1113,10 @@
         {% endif %}
         {% if current_user.is_authenticated and (current_user.is_admin or current_user.is_moderator) %}
           <a class="bfh-nav-btn bfh-nav-row2 moderator-badge {% if (pending_review_count and pending_review_count > 0) or (pending_dupe_count is defined and pending_dupe_count > 0) %}moderator-review-glow{% endif %}"
-            href="{{ url_for('main.moderation_review') }}"
+            href="{{ url_for('main.moderators_room') }}"
+            title="Moderators Room & Review Queues"
             x-content-detected="none">
-            Moderator{% if pending_review_count and pending_review_count > 0 %} ({{ pending_review_count }}){% endif %}{% if pending_dupe_count is defined and pending_dupe_count > 0 %} · 👯{{ pending_dupe_count }}{% endif %}
+            🛡️ Mod Room{% if pending_review_count and pending_review_count > 0 %} ({{ pending_review_count }}){% endif %}{% if pending_dupe_count is defined and pending_dupe_count > 0 %} · 👯{{ pending_dupe_count }}{% endif %}
           </a>
         {% endif %}
       </div>
@@ -1147,6 +1148,15 @@
               </div>
             </button>
             <div class="user-menu-popout d-none" id="user-menu-popout">
+              {% if current_user.is_banned() %}
+                <div class="alert alert-danger p-2 mb-2 small text-start">
+                  <strong>⛔ Account Suspended</strong>
+                  {% if current_user.ban_reason %}
+                    <div class="small mt-1 text-truncate" title="{{ current_user.ban_reason }}">{{ current_user.ban_reason }}</div>
+                  {% endif %}
+                  <div class="badge bg-dark font-monospace bfh-timer mt-1 w-100" data-expire="{{ current_user.ban_until.isoformat() }}Z">...</div>
+                </div>
+              {% endif %}
               <a href="{{ url_for('main.user_view_comments') }}"
                  class="btn btn-sm btn-outline-light w-100 mb-2 {% if has_unseen_joke_comments %}glow-green-unseen{% endif %}"
                  title="{% if has_unseen_joke_comments %}New comments on your posts{% endif %}">
@@ -1187,6 +1197,22 @@
   </nav>
 </div>
 <div class="container mt-3 main-content-layer">
+  {% if current_user.is_authenticated and current_user.is_banned() %}
+    <div class="alert alert-danger bfh-ban-banner d-flex flex-wrap justify-content-between align-items-center py-2 px-3 my-2" role="alert">
+      <div>
+        <strong>⛔ Account Suspended</strong>
+        {% if current_user.ban_reason %}
+          <span class="ms-1">· Reason: <em>{{ current_user.ban_reason }}</em></span>
+        {% endif %}
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="small">Ban expires in:</span>
+        <span class="badge bg-dark fs-6 font-monospace bfh-timer" data-expire="{{ current_user.ban_until.isoformat() }}Z">
+          calculating...
+        </span>
+      </div>
+    </div>
+  {% endif %}
   {% with messages = get_flashed_messages(with_categories=True) %}
     {% if messages %}
       {% for cat, msg in messages %}
@@ -1291,7 +1317,153 @@
   });
 })();
 </script>
+
+<!-- Moderator Ban Reason Prompt Modal -->
+<div id="bfhBanPromptModal" class="bfh-q-overlay" aria-hidden="true" role="dialog" aria-labelledby="bfhBanModalTitle">
+  <div class="bfh-q-dialog" style="max-width: 480px;">
+    <h5 id="bfhBanModalTitle" class="text-danger">⛔ Suspend User</h5>
+    <p class="small text-muted mb-3">
+      Suspend <strong id="bfhBanTargetUsername" class="text-warning">user</strong> from posting jokes, comments, and voting.
+    </p>
+    <form id="bfhBanPromptForm" method="post" action="#">
+      <!-- Duration Selection -->
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-muted d-block mb-1">Duration:</label>
+        <div class="d-flex flex-wrap gap-2">
+          <label class="btn btn-sm btn-outline-secondary py-1 px-2">
+            <input type="radio" name="period" value="24h" checked> 24h
+          </label>
+          <label class="btn btn-sm btn-outline-secondary py-1 px-2">
+            <input type="radio" name="period" value="48h"> 48h
+          </label>
+          <label class="btn btn-sm btn-outline-secondary py-1 px-2">
+            <input type="radio" name="period" value="7d"> 7 days
+          </label>
+          <label class="btn btn-sm btn-outline-secondary py-1 px-2">
+            <input type="radio" name="period" value="30d"> 30 days
+          </label>
+          <label class="btn btn-sm btn-outline-danger py-1 px-2">
+            <input type="radio" name="period" value="permanent"> Permanent
+          </label>
+        </div>
+      </div>
+
+      <!-- Preset Reason -->
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-muted d-block mb-1">Reason:</label>
+        <select name="preset_reason" id="bfhBanPresetReason" class="form-select bg-black text-light border-secondary mb-2" style="font-size: 0.9rem;">
+          <option value="Abusive or harassing comments / messages">Abusive or harassing comments / messages</option>
+          <option value="Rule-breaking or prohibited post content">Rule-breaking or prohibited post content</option>
+          <option value="Excessive duplicate joke / meme spamming">Excessive duplicate joke / meme spamming</option>
+          <option value="Inappropriate username or profile information">Inappropriate username or profile information</option>
+          <option value="Trolling, vote manipulation, or bad faith behavior">Trolling, vote manipulation, or bad faith behavior</option>
+          <option value="Other">Other (custom text below)</option>
+        </select>
+      </div>
+
+      <!-- Custom Reason -->
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-muted d-block mb-1">Custom Notes / Context (shown to user & logged):</label>
+        <input type="text" name="reason" id="bfhBanCustomReason" class="form-control bg-black text-light border-secondary" placeholder="Optional details...">
+      </div>
+
+      <div class="bfh-q-actions d-flex justify-content-end gap-2 mt-3">
+        <button type="button" class="btn btn-sm btn-outline-light" id="bfhBanCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-danger">Confirm Ban</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  var modal = document.getElementById("bfhBanPromptModal");
+  var form = document.getElementById("bfhBanPromptForm");
+  var userSpan = document.getElementById("bfhBanTargetUsername");
+  var cancelBtn = document.getElementById("bfhBanCancelBtn");
+  var customReason = document.getElementById("bfhBanCustomReason");
+  if (!modal || !form) return;
+
+  function closeModal() {
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+  }
+
+  function openBanModal(userId, username, currentReason) {
+    form.action = "/moderation/ban/" + encodeURIComponent(userId);
+    userSpan.textContent = username || ("User #" + userId);
+    if (customReason) customReason.value = currentReason || "";
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+  }
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".bfh-ban-modal-btn");
+    if (btn) {
+      e.preventDefault();
+      var uid = btn.getAttribute("data-user-id");
+      var uname = btn.getAttribute("data-username");
+      var reason = btn.getAttribute("data-current-reason");
+      openBanModal(uid, uname, reason);
+      return;
+    }
+    if (e.target === modal) {
+      closeModal();
+    }
+  });
+
+  if (cancelBtn) cancelBtn.addEventListener("click", closeModal);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && modal.classList.contains("is-open")) {
+      closeModal();
+    }
+  });
+
+  form.addEventListener("submit", function (e) {
+    var period = (form.querySelector('input[name="period"]:checked') || {}).value || "24h";
+    var msg = "Suspend " + userSpan.textContent + " (" + period + ")?";
+    if (!confirm(msg)) {
+      e.preventDefault();
+      return false;
+    }
+  });
+})();
+</script>
 {% endif %}
+
+<!-- Global Live Timer JS for Banned Users and Queues -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  function updateGlobalTimers() {
+    var now = new Date().getTime();
+    document.querySelectorAll(".bfh-timer").forEach(function (el) {
+      var expStr = el.getAttribute("data-expire");
+      if (!expStr) return;
+      var expTime = new Date(expStr).getTime();
+      var diff = expTime - now;
+      if (diff <= 0) {
+        el.textContent = "Expired";
+        el.classList.remove("bg-danger", "bg-dark");
+        el.classList.add("bg-secondary");
+        return;
+      }
+      var days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      var hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      var mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      var secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+      if (days > 0) {
+        el.textContent = days + "d " + hours + "h " + mins + "m " + secs + "s";
+      } else {
+        el.textContent = hours + "h " + mins + "m " + secs + "s";
+      }
+    });
+  }
+  updateGlobalTimers();
+  setInterval(updateGlobalTimers, 1000);
+});
+</script>
 
 <script>
 (function () {

@@ -10,7 +10,11 @@
     </a>
     <a class="btn btn-sm btn-outline-warning"
        href="{{ url_for('main.moderation_duplicates') }}">
-      Duplicates Review{% if pending_dupe_count is defined and pending_dupe_count %} ({{ pending_dupe_count }}){% endif %}
+      Duplicates{% if pending_dupe_count is defined and pending_dupe_count %} ({{ pending_dupe_count }}){% endif %}
+    </a>
+    <a class="btn btn-sm btn-outline-primary"
+       href="{{ url_for('main.moderators_room') }}">
+      💬 Mod Room
     </a>
   </div>
 </div>
