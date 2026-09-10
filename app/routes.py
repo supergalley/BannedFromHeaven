@@ -3966,29 +3966,53 @@ def toggle_user_appeal_ban(user_id):
 @main_bp.route("/moderation/users/<int:user_id>/toggle-review", methods=["POST"])
 @moderator_required
 def toggle_user_review(user_id):
+    from .models import ModRoomMessage
+
     user = User.query.get_or_404(user_id)
     if user.is_admin or user.is_moderator:
         flash("Admin and moderator accounts cannot be placed into submission review.", "info")
         return redirect(request.referrer or url_for("main.user_profile", username=user.username))
-    user.needs_moderator = not bool(user.needs_moderator)
+
+    if not user.needs_moderator:
+        reason = (request.form.get("reason") or "").strip()
+        if not reason:
+            preset = (request.form.get("preset_reason") or "").strip()
+            reason = preset if preset else "Flagged by moderator for submission review."
+        user.needs_moderator = True
+        user.needs_mod_reason = reason
+        user.needs_mod_by_id = current_user.id
+        user.needs_mod_at = datetime.utcnow()
+        action_msg = f"{current_user.username} placed {user.username} on 'Review All Jokes'. Reason: {reason}"
+        flash(f"{user.username} is now on 'Review All Jokes'. All future posts will require moderator approval.", "warning")
+    else:
+        user.needs_moderator = False
+        user.needs_mod_reason = None
+        user.needs_mod_by_id = None
+        user.needs_mod_at = None
+        action_msg = f"{current_user.username} removed {user.username} from 'Review All Jokes' (marked as safe)."
+        flash(f"{user.username} has been marked as safe. Future posts will go live immediately.", "success")
+
     note = AdminNotification(
         action="Toggle user moderation",
-        message=f"{current_user.username} set needs_moderator={user.needs_moderator} for {user.username}.",
+        message=action_msg,
         performed_by_id=current_user.id,
         target_user_id=user.id,
     )
     db.session.add(note)
+    mod_msg = ModRoomMessage(
+        user_id=current_user.id,
+        body=f"🛡️ **Moderation Update**: {action_msg}",
+    )
+    db.session.add(mod_msg)
     db.session.commit()
-    if user.needs_moderator:
-        flash(f"{user.username} is now on 'Review All Jokes'. All their future posts will require moderator approval.", "warning")
-    else:
-        flash(f"{user.username} has been marked as safe. Future posts will go live immediately.", "success")
     return redirect(request.referrer or url_for("main.user_profile", username=user.username))
 
 
 @main_bp.route("/moderation/jokes/<int:joke_id>/toggle-author-review", methods=["POST"])
 @moderator_required
 def toggle_joke_author_review(joke_id):
+    from .models import ModRoomMessage
+
     joke = Joke.query.get_or_404(joke_id)
     author = joke.author
     if not author:
@@ -3997,20 +4021,40 @@ def toggle_joke_author_review(joke_id):
     if author.is_admin or author.is_moderator:
         flash("Admin and moderator accounts cannot be put into submission review from here.", "info")
         return redirect(url_for("main.joke_detail", joke_id=joke.id))
-    author.needs_moderator = not bool(author.needs_moderator)
+
+    if not author.needs_moderator:
+        reason = (request.form.get("reason") or "").strip()
+        if not reason:
+            preset = (request.form.get("preset_reason") or "").strip()
+            reason = preset if preset else f"Flagged from joke #{joke.id}"
+        author.needs_moderator = True
+        author.needs_mod_reason = reason
+        author.needs_mod_by_id = current_user.id
+        author.needs_mod_at = datetime.utcnow()
+        action_msg = f"{current_user.username} placed {author.username} on 'Review All Jokes' from joke #{joke.id}. Reason: {reason}"
+        flash(f"{author.username} is now questionable. All future posts will need moderator approval.", "warning")
+    else:
+        author.needs_moderator = False
+        author.needs_mod_reason = None
+        author.needs_mod_by_id = None
+        author.needs_mod_at = None
+        action_msg = f"{current_user.username} removed {author.username} from 'Review All Jokes' (marked as safe)."
+        flash(f"{author.username} has been marked as safe. Future posts will go live immediately.", "success")
+
     note = AdminNotification(
         action="Toggle user moderation",
-        message=f"{current_user.username} set needs_moderator={author.needs_moderator} for {author.username} from joke #{joke.id}.",
+        message=action_msg,
         performed_by_id=current_user.id,
         target_user_id=author.id,
         target_joke_id=joke.id,
     )
     db.session.add(note)
+    mod_msg = ModRoomMessage(
+        user_id=current_user.id,
+        body=f"🛡️ **Moderation Update**: {action_msg}",
+    )
+    db.session.add(mod_msg)
     db.session.commit()
-    if author.needs_moderator:
-        flash(f"{author.username} is now questionable. All future posts will need moderator approval.", "warning")
-    else:
-        flash(f"{author.username} has been marked as safe. Future posts will go live immediately.", "success")
     return redirect(url_for("main.joke_detail", joke_id=joke.id))
 
 @main_bp.route("/moderation/jokes/<int:joke_id>/quarantine", methods=["POST"])

@@ -1524,6 +1524,92 @@
   });
 })();
 </script>
+
+<!-- Moderator Review All Jokes Prompt Modal -->
+<div id="bfhReviewPromptModal" class="bfh-q-overlay" aria-hidden="true" role="dialog" aria-labelledby="bfhReviewModalTitle">
+  <div class="bfh-q-dialog" style="max-width: 480px;">
+    <h5 id="bfhReviewModalTitle" class="text-warning">📋 Put User on 'Review All Jokes'</h5>
+    <p class="small text-muted mb-3">
+      Place <strong id="bfhReviewTargetUsername" class="text-info">user</strong> under submission review. All their future jokes, memes, and clips will require moderator approval before appearing on the site.
+    </p>
+    <form id="bfhReviewPromptForm" method="post" action="#">
+      <!-- Preset Reason -->
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-muted d-block mb-1">Reason for Moderation:</label>
+        <select name="preset_reason" id="bfhReviewPresetReason" class="form-select bg-black text-light border-secondary mb-2" style="font-size: 0.9rem;">
+          <option value="Repeated duplicate or low-effort reposts">Repeated duplicate or low-effort reposts</option>
+          <option value="Rule-breaking or inappropriate submissions">Rule-breaking or inappropriate submissions</option>
+          <option value="Spamming or flooding the joke feed">Spamming or flooding the joke feed</option>
+          <option value="Suspected bot, troll, or sockpuppet account">Suspected bot, troll, or sockpuppet account</option>
+          <option value="Other">Other / custom notes below</option>
+        </select>
+      </div>
+
+      <!-- Custom Reason -->
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-muted d-block mb-1">Additional Notes (visible to Mod Team):</label>
+        <textarea name="reason" id="bfhReviewNotes" class="form-control bg-black text-light border-secondary" rows="2" placeholder="Explain why this user requires moderation..."></textarea>
+      </div>
+
+      <div class="bfh-q-actions d-flex justify-content-end gap-2 mt-3">
+        <button type="button" class="btn btn-sm btn-outline-light" id="bfhReviewCancelBtn">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-danger">Confirm & Put on Review</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  var modal = document.getElementById("bfhReviewPromptModal");
+  if (!modal) return;
+  var form = document.getElementById("bfhReviewPromptForm");
+  var userSpan = document.getElementById("bfhReviewTargetUsername");
+  var cancelBtn = document.getElementById("bfhReviewCancelBtn");
+  var notes = document.getElementById("bfhReviewNotes");
+  var preset = document.getElementById("bfhReviewPresetReason");
+
+  function closeModal() {
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+  }
+
+  function openReviewModal(actionUrl, username) {
+    form.action = actionUrl;
+    userSpan.textContent = username || "this user";
+    if (notes) notes.value = "";
+    if (preset) preset.selectedIndex = 0;
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+  }
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".bfh-review-modal-btn");
+    if (btn) {
+      e.preventDefault();
+      var action = btn.getAttribute("data-action-url");
+      if (!action) {
+        var uid = btn.getAttribute("data-user-id");
+        if (uid) action = "/moderation/users/" + encodeURIComponent(uid) + "/toggle-review";
+      }
+      var uname = btn.getAttribute("data-username");
+      openReviewModal(action, uname);
+      return;
+    }
+    if (e.target === modal) {
+      closeModal();
+    }
+  });
+
+  if (cancelBtn) cancelBtn.addEventListener("click", closeModal);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && modal.classList.contains("is-open")) {
+      closeModal();
+    }
+  });
+})();
+</script>
 {% endif %}
 
 <!-- Global Live Timer JS for Banned Users and Queues -->

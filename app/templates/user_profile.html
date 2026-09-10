@@ -84,17 +84,31 @@
         </a>
       {% endif %}
       {% if (current_user.is_admin or current_user.is_moderator) and current_user.id != profile_user.id and not profile_user.is_admin and not profile_user.is_moderator %}
-        <form method="post" action="{{ url_for('main.toggle_user_review', user_id=profile_user.id) }}" class="d-inline ms-2">
-          {% if profile_user.needs_moderator %}
+        {% if profile_user.needs_moderator %}
+          <form method="post" action="{{ url_for('main.toggle_user_review', user_id=profile_user.id) }}" class="d-inline ms-2">
             <button type="submit" class="btn btn-sm btn-outline-success" onclick="return confirm('Remove {{ profile_user.username }} from submission review? Their future posts will go live immediately.');">
               Remove from Review (Mark Safe)
             </button>
-          {% else %}
-            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Put {{ profile_user.username }} on review? All their future posts will require moderator approval.');">
-              Review All Jokes
-            </button>
-          {% endif %}
-        </form>
+          </form>
+        {% else %}
+          <button type="button"
+                  class="btn btn-sm btn-outline-danger ms-2 bfh-review-modal-btn"
+                  data-user-id="{{ profile_user.id }}"
+                  data-username="{{ profile_user.username }}">
+            Review All Jokes
+          </button>
+        {% endif %}
+        {% if profile_user.needs_moderator %}
+          <div class="alert alert-warning py-2 px-3 small mt-3 border-warning">
+            <strong>⚠️ On Submission Review:</strong> All future posts require moderator approval before going live.
+            {% if profile_user.needs_mod_reason %}
+              <br><strong>Reason:</strong> {{ profile_user.needs_mod_reason }}
+            {% endif %}
+            {% if profile_user.needs_mod_by %}
+              <br><span class="text-muted">Placed on review by <strong>{{ profile_user.needs_mod_by.username }}</strong>{% if profile_user.needs_mod_at %} on {{ profile_user.needs_mod_at.strftime('%d-%m-%Y %H:%M') }} UTC{% endif %}</span>
+            {% endif %}
+          </div>
+        {% endif %}
       {% endif %}
     {% endif %}
   </div>

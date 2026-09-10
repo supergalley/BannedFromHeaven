@@ -291,6 +291,18 @@ def create_app():
                         "ALTER TABLE users ADD COLUMN duplicate_appeals_banned "
                         "INTEGER DEFAULT 0"
                     )
+                if ucols and "needs_mod_reason" not in ucols:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE users ADD COLUMN needs_mod_reason VARCHAR(255)"
+                    )
+                if ucols and "needs_mod_by_id" not in ucols:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE users ADD COLUMN needs_mod_by_id INTEGER REFERENCES users(id)"
+                    )
+                if ucols and "needs_mod_at" not in ucols:
+                    conn.exec_driver_sql(
+                        "ALTER TABLE users ADD COLUMN needs_mod_at DATETIME"
+                    )
                 # Subcategory FK columns (table itself created via create_all)
                 for table_name in ("jokes", "joke_drafts", "archived_jokes"):
                     tcols = {

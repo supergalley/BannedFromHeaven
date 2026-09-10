@@ -280,6 +280,14 @@
                     <td>
                       {% if su.needs_moderator %}
                         <span class="badge bg-warning text-dark">Review Required</span>
+                        {% if su.needs_mod_reason %}
+                          <div class="small text-muted text-wrap" style="max-width: 170px;" title="{{ su.needs_mod_reason }}">
+                            {{ su.needs_mod_reason }}
+                          </div>
+                        {% endif %}
+                        {% if su.needs_mod_by %}
+                          <div class="text-secondary" style="font-size: 0.75rem;">by {{ su.needs_mod_by.username }}</div>
+                        {% endif %}
                       {% endif %}
                       {% if su.duplicate_appeals_banned %}
                         <span class="badge bg-danger">Appeals Blocked</span>
@@ -288,17 +296,21 @@
                     <td>{{ su.reputation }}</td>
                     <td>
                       <div class="d-flex gap-1">
-                        <form method="post" action="{{ url_for('main.toggle_user_review', user_id=su.id) }}" class="d-inline">
-                          {% if su.needs_moderator %}
-                            <button class="btn btn-xs btn-outline-success py-0 px-1" title="Mark user as safe (remove review requirement)">
+                        {% if su.needs_moderator %}
+                          <form method="post" action="{{ url_for('main.toggle_user_review', user_id=su.id) }}" class="d-inline">
+                            <button class="btn btn-xs btn-outline-success py-0 px-1" title="Mark user as safe (remove review requirement)" onclick="return confirm('Mark {{ su.username }} as safe? Future posts will go live immediately.');">
                               Mark Safe
                             </button>
-                          {% else %}
-                            <button class="btn btn-xs btn-outline-warning py-0 px-1" title="Put user on review for all future jokes">
-                              Review All
-                            </button>
-                          {% endif %}
-                        </form>
+                          </form>
+                        {% else %}
+                          <button type="button"
+                                  class="btn btn-xs btn-outline-warning py-0 px-1 bfh-review-modal-btn"
+                                  data-user-id="{{ su.id }}"
+                                  data-username="{{ su.username }}"
+                                  title="Put user on review for all future jokes">
+                            Review All
+                          </button>
+                        {% endif %}
                         {% if su.duplicate_appeals_banned %}
                           <form method="post" action="{{ url_for('main.toggle_user_appeal_ban', user_id=su.id) }}" class="d-inline">
                             <button class="btn btn-xs btn-outline-info py-0 px-1" title="Unblock appeals">

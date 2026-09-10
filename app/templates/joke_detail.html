@@ -274,23 +274,24 @@
       and joke.author
       and not joke.author.is_admin
       and not joke.author.is_moderator %}
-  <form method="post"
-        action="{{ url_for('main.toggle_joke_author_review', joke_id=joke.id) }}"
-        class="d-inline">
     {% if joke.author.needs_moderator %}
-      <button type="submit"
-              class="btn btn-sm btn-outline-success"
-              onclick="return confirm('Mark {{ joke.author.username }} as safe? Their future posts will go live immediately.');">
-        Remove from Moderation - Safe User
-      </button>
+      <form method="post"
+            action="{{ url_for('main.toggle_joke_author_review', joke_id=joke.id) }}"
+            class="d-inline">
+        <button type="submit"
+                class="btn btn-sm btn-outline-success"
+                onclick="return confirm('Mark {{ joke.author.username }} as safe? Their future posts will go live immediately.');">
+          Remove from Moderation - Safe User
+        </button>
+      </form>
     {% else %}
-      <button type="submit"
-              class="btn btn-sm btn-outline-danger"
-              onclick="return confirm('Mark {{ joke.author.username }} as questionable? All their future posts will need moderator approval.');">
+      <button type="button"
+              class="btn btn-sm btn-outline-danger bfh-review-modal-btn"
+              data-action-url="{{ url_for('main.toggle_joke_author_review', joke_id=joke.id) }}"
+              data-username="{{ joke.author.username }}">
         Questionable User - Moderate All Future Posts
       </button>
     {% endif %}
-  </form>
   {% endif %}
   {% if current_user.is_authenticated
       and (current_user.is_admin or current_user.is_moderator)

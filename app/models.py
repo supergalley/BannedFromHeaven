@@ -161,6 +161,13 @@ class User(UserMixin, db.Model):
 
     banned_by = db.relationship("User", foreign_keys=[banned_by_id], remote_side="User.id")
 
+    # Review all jokes metadata
+    needs_mod_reason = db.Column(db.String(255), nullable=True)
+    needs_mod_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    needs_mod_at = db.Column(db.DateTime, nullable=True)
+
+    needs_mod_by = db.relationship("User", foreign_keys=[needs_mod_by_id], remote_side="User.id")
+
     # Existing relationships
     jokes = db.relationship(
         "Joke", backref="author", lazy=True, foreign_keys="Joke.user_id"
