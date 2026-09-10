@@ -28,6 +28,9 @@
       </span>
     {% endif %}
   {% endif %}
+  {% if current_user.is_authenticated and (current_user.is_admin or current_user.is_moderator) and profile_user.needs_moderator %}
+    <span class="badge bg-warning text-dark ms-2" style="font-size: 0.45em; vertical-align: middle;">Review All Jokes</span>
+  {% endif %}
 </h2>
 <div class="row mb-3">
   <div class="col-md-3 mb-3">
@@ -79,6 +82,19 @@
            class="btn btn-sm btn-primary">
           Send message
         </a>
+      {% endif %}
+      {% if (current_user.is_admin or current_user.is_moderator) and current_user.id != profile_user.id and not profile_user.is_admin and not profile_user.is_moderator %}
+        <form method="post" action="{{ url_for('main.toggle_user_review', user_id=profile_user.id) }}" class="d-inline ms-2">
+          {% if profile_user.needs_moderator %}
+            <button type="submit" class="btn btn-sm btn-outline-success" onclick="return confirm('Remove {{ profile_user.username }} from submission review? Their future posts will go live immediately.');">
+              Remove from Review (Mark Safe)
+            </button>
+          {% else %}
+            <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Put {{ profile_user.username }} on review? All their future posts will require moderator approval.');">
+              Review All Jokes
+            </button>
+          {% endif %}
+        </form>
       {% endif %}
     {% endif %}
   </div>

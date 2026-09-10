@@ -3962,6 +3962,30 @@ def toggle_user_appeal_ban(user_id):
     flash(f"Appeal privileges for {user.username} updated (banned={user.duplicate_appeals_banned}).", "info")
     return redirect(request.referrer or url_for("main.moderators_room"))
 
+
+@main_bp.route("/moderation/users/<int:user_id>/toggle-review", methods=["POST"])
+@moderator_required
+def toggle_user_review(user_id):
+    user = User.query.get_or_404(user_id)
+    if user.is_admin or user.is_moderator:
+        flash("Admin and moderator accounts cannot be placed into submission review.", "info")
+        return redirect(request.referrer or url_for("main.user_profile", username=user.username))
+    user.needs_moderator = not bool(user.needs_moderator)
+    note = AdminNotification(
+        action="Toggle user moderation",
+        message=f"{current_user.username} set needs_moderator={user.needs_moderator} for {user.username}.",
+        performed_by_id=current_user.id,
+        target_user_id=user.id,
+    )
+    db.session.add(note)
+    db.session.commit()
+    if user.needs_moderator:
+        flash(f"{user.username} is now on 'Review All Jokes'. All their future posts will require moderator approval.", "warning")
+    else:
+        flash(f"{user.username} has been marked as safe. Future posts will go live immediately.", "success")
+    return redirect(request.referrer or url_for("main.user_profile", username=user.username))
+
+
 @main_bp.route("/moderation/jokes/<int:joke_id>/toggle-author-review", methods=["POST"])
 @moderator_required
 def toggle_joke_author_review(joke_id):
