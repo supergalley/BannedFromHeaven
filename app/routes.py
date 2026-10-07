@@ -46,6 +46,7 @@ from .models import (
     AdminNotification,
     JokeCommentReaction,
     REACTION_TYPES,
+    ArchivedJoke,
 )
 
 MAX_JOKE_DRAFTS_PER_USER = 25
@@ -685,6 +686,7 @@ def robots_txt():
         [
             "User-agent: *",
             "Allow: /",
+            "Disallow: /cdn-cgi/",
             "",
             f"Sitemap: {sitemap_url}",
             "",
@@ -692,6 +694,19 @@ def robots_txt():
     )
 
     return Response(robots, mimetype="text/plain")
+
+
+@main_bp.route("/about")
+def about_redirect():
+    """Permanent 301 redirect for legacy or crawled /about links to terms/rules."""
+    return redirect(url_for("main.terms_and_conditions"), code=301)
+
+
+@main_bp.route("/cdn-cgi/<path:dummy>")
+@main_bp.route("/cdn-cgi/")
+def cdn_cgi_stub(dummy=""):
+    """Explicitly respond 410 Gone if crawlers attempt to index Cloudflare CDN paths."""
+    abort(410)
 
 
 def apply_time_filter(query, time_range: str):
@@ -1459,9 +1474,43 @@ def sitecode_zip():
 
 @main_bp.route("/jokes/<int:joke_id>")
 def joke_detail(joke_id):
-    joke = Joke.query.get_or_404(joke_id)
+    joke = Joke.query.get(joke_id)
+    if not joke:
+        # Check if joke was archived (e.g. duplicate merge or soft-deleted)
+        archived = ArchivedJoke.query.filter_by(original_joke_id=joke_id).first()
+        if archived and archived.related_kept_joke_id:
+            # Resolve duplicate merge chain to active kept joke
+            target_id = archived.related_kept_joke_id
+            visited = {joke_id}
+            while target_id and target_id not in visited:
+                visited.add(target_id)
+                target_joke = Joke.query.get(target_id)
+                if (
+                    target_joke
+                    and target_joke.review_status == "approved"
+                    and not target_joke.is_quarantined
+                ):
+                    return redirect(
+                        url_for("main.joke_detail", joke_id=target_joke.id),
+                        code=301,
+                    )
+                next_archived = ArchivedJoke.query.filter_by(
+                    original_joke_id=target_id
+                ).first()
+                if next_archived and next_archived.related_kept_joke_id:
+                    target_id = next_archived.related_kept_joke_id
+                else:
+                    break
+        abort(410)
+
     if joke.review_status != "approved":
-        if not current_user.is_authenticated or not (current_user.is_admin or current_user.is_moderator or current_user.id == joke.user_id):
+        if not current_user.is_authenticated or not (
+            current_user.is_admin
+            or current_user.is_moderator
+            or current_user.id == joke.user_id
+        ):
+            if joke.review_status == "rejected":
+                abort(410)
             abort(404)
     comments = (
         Comment.query.filter_by(joke_id=joke.id)
@@ -2919,7 +2968,9 @@ def new_thread():
 
 @main_bp.route("/forum/<int:thread_id>")
 def thread_detail(thread_id):
-    thread = ForumThread.query.get_or_404(thread_id)
+    thread = ForumThread.query.get(thread_id)
+    if not thread:
+        abort(410)
     replies = (
         ForumReply.query.filter_by(thread_id=thread.id)
         .order_by(ForumReply.created_at.asc())

@@ -67,7 +67,9 @@ def new_thread():
 
 @forum_bp.route("/thread/<int:thread_id>", methods=["GET", "POST"])
 def view_thread(thread_id):
-    thread = ForumThread.query.get_or_404(thread_id)
+    thread = ForumThread.query.get(thread_id)
+    if not thread:
+        abort(410)
 
     # -------------------- Handle posting a reply --------------------
     if request.method == "POST":
