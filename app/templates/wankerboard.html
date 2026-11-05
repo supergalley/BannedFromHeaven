@@ -106,4 +106,9 @@
   </tbody>
 </table>
 
+<div class="d-flex flex-wrap gap-4 small text-muted border-top border-secondary pt-3 mt-4 mb-3" aria-label="User statistics">
+  <span><strong>Total Users:</strong> {{ total_user_count }}</span>
+  <span title="Registered users with a successful login in the last 30 days"><strong>Last 30 Days:</strong> {{ recent_login_user_count }}</span>
+</div>
+
 {% endblock %}

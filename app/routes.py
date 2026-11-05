@@ -2684,9 +2684,21 @@ def wankerboard():
         .all()
     )
 
+    from .models import LoginAudit
+
+    recent_login_users = db.session.query(LoginAudit.user_id).filter(
+        LoginAudit.success.is_(True),
+        LoginAudit.created_at >= now - timedelta(days=30),
+        LoginAudit.created_at <= now,
+    )
+    total_user_count = User.query.count()
+    recent_login_user_count = User.query.filter(User.id.in_(recent_login_users)).count()
+
     return render_template(
         "wankerboard.html",  # you can rename the file later if you want
         lb_range=lb_range,
+        total_user_count=total_user_count,
+        recent_login_user_count=recent_login_user_count,
         rep_leaderboard=rep_leaderboard,
         upvote_leaderboard=upvote_leaderboard,
         downvote_leaderboard=downvote_leaderboard,
