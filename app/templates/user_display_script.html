@@ -1,10 +1,34 @@
 <script>
 // Decorate visible labels only; forms and links retain the original username.
-window.bfhDisplayUsername = (() => {
+(() => {
   const newMembers = new Set({{ new_member_names|tojson }});
-  return username => {
+  const strikes = new Map(Object.entries({{ username_strike_counts|tojson }}));
+  function usernameLabel(username) {
     const name = String(username || '');
-    return name + (newMembers.has(name) ? ' ✨' : '');
+    const label = document.createElement('span');
+    label.textContent = name + (newMembers.has(name) ? ' ✨' : '');
+    const count = strikes.get(name) || 0;
+    if (count) {
+      const badge = document.createElement('span');
+      badge.className = 'badge rounded-pill bg-warning text-dark ms-1 user-strike-badge';
+      badge.textContent = 'Strike';
+      badge.title = count + ' active warning strike' + (count === 1 ? '' : 's');
+      badge.setAttribute('aria-label', badge.title);
+      label.append(' ', badge);
+    }
+    return label;
+  }
+  window.bfhDisplayUsername = username => usernameLabel(username).textContent;
+  window.bfhUsernameHtml = username => usernameLabel(username).innerHTML;
+  window.bfhRenderUsername = (element, username) => {
+    element.replaceChildren(...usernameLabel(username).childNodes);
+  };
+  window.bfhRenderUsernameList = (element, usernames) => {
+    element.replaceChildren();
+    usernames.forEach((username, index) => {
+      if (index) element.append(', ');
+      element.append(usernameLabel(username));
+    });
   };
 })();
 </script>

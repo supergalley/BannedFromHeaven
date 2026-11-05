@@ -356,7 +356,7 @@
         title.textContent = usernames.length + (usernames.length === 1 ? ' user' : ' users');
         const list = document.createElement('div');
         list.className = 'reaction-users-list';
-        list.textContent = usernames.map(window.bfhDisplayUsername).join(', ');
+        window.bfhRenderUsernameList(list, usernames);
         userTooltip.appendChild(title);
         userTooltip.appendChild(list);
         const rect = button.getBoundingClientRect();

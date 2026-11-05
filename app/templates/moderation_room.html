@@ -225,7 +225,6 @@
                       <a href="{{ url_for('main.user_profile', username=w.user.username if w.user else '#') }}" class="fw-bold text-light text-decoration-none">
                         {{ (w.user.username if w.user else 'User #' ~ w.user_id)|display_username }}
                       </a>
-                      <span class="badge bg-warning text-dark ms-1">Strike</span>
                     </td>
                     <td>
                       <div class="small fw-semibold text-warning" style="white-space: pre-wrap; overflow-wrap: anywhere; min-width: 220px;">{{ w.reason }}</div>

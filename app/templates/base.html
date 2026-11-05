@@ -1392,7 +1392,7 @@
 
   function openBanModal(userId, username, currentReason) {
     form.action = "/moderation/ban/" + encodeURIComponent(userId);
-    userSpan.textContent = window.bfhDisplayUsername(username) || ("User #" + userId);
+    window.bfhRenderUsername(userSpan, username || ("User #" + userId));
     if (customReason) customReason.value = currentReason || "";
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
@@ -1490,7 +1490,7 @@
 
   function openWarnModal(userId, username) {
     form.action = "/moderation/warn/" + encodeURIComponent(userId);
-    userSpan.textContent = window.bfhDisplayUsername(username) || ("User #" + userId);
+    window.bfhRenderUsername(userSpan, username || ("User #" + userId));
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
   }
@@ -1577,7 +1577,7 @@
 
   function openReviewModal(actionUrl, username) {
     form.action = actionUrl;
-    userSpan.textContent = window.bfhDisplayUsername(username) || "this user";
+    window.bfhRenderUsername(userSpan, username || "this user");
     if (notes) notes.value = "";
     if (preset) preset.selectedIndex = 0;
     modal.classList.add("is-open");
@@ -1752,15 +1752,11 @@ document.addEventListener("DOMContentLoaded", function () {
     let arrow = '🔥';
     if (value === 2) { kind = 'super'; arrow = '💥'; }
     else if (value === -1) { kind = 'down'; arrow = '💩'; }
-    const name = window.bfhDisplayUsername(v.username || '?');
-    // Escape HTML in username
-    const esc = name.replace(/[&<>"']/g, (c) => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
+    const name = window.bfhUsernameHtml(v.username || '?');
     return (
       '<div class="vote-voter-row vote-tally-' + kind + '">' +
         '<span class="vote-tally-icon">' + arrow + '</span>' +
-        '<span class="vote-voter-name">' + esc + '</span>' +
+        '<span class="vote-voter-name">' + name + '</span>' +
       '</div>'
     );
   }

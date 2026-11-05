@@ -274,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
               const btn = document.createElement('button');
               btn.type = 'button';
               btn.className = 'list-group-item list-group-item-action';
-              btn.textContent = window.bfhDisplayUsername(username);
+              window.bfhRenderUsername(btn, username);
               btn.addEventListener('click', () => {
                 saluteTouched = true;
                 saluteInput.value = username;

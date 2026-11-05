@@ -106,6 +106,74 @@ class UserDisplayTest(unittest.TestCase):
                 with self.subTest(template=name):
                     app.jinja_env.get_template(name)
 
+    def seed_strikes(self):
+        from app.models import UserWarning
+        self.admin = User.query.filter_by(username='veteran').one()
+        self.admin.is_admin = True
+        self.mod = User.query.filter_by(username='future').one()
+        self.mod.is_moderator = True
+        target = User.query.filter_by(username='newbie').one()
+        inactive = User.query.filter_by(username='boundary').one()
+        db.session.add_all([
+            UserWarning(user_id=target.id, issuer_id=self.admin.id, reason='First', is_active=True),
+            UserWarning(user_id=target.id, issuer_id=self.admin.id, reason='Second', is_active=True),
+            UserWarning(user_id=inactive.id, issuer_id=self.admin.id, reason='Dismissed', is_active=False),
+        ])
+        db.session.commit()
+
+    def test_strike_pill_is_visible_only_to_admins_and_moderators(self):
+        from flask_login import login_user
+        from app.user_display import active_strike_counts
+        self.seed_strikes()
+        for viewer in [self.admin, self.mod]:
+            with app.test_request_context():
+                login_user(viewer)
+                label = str(display_username('newbie'))
+                self.assertIn('user-strike-badge', label)
+                self.assertIn('>Strike</span>', label)
+                self.assertIn('2 active warning strikes', label)
+                self.assertIn('new-member-badge', label)
+                self.assertNotIn('user-strike-badge', str(display_username('boundary')))
+                self.assertEqual(active_strike_counts(), {'newbie': 2})
+                self.assertIs(active_strike_counts(), active_strike_counts())
+        for viewer in [None, User.query.filter_by(username='newbie').one()]:
+            with app.test_request_context():
+                g.pop('_login_user', None)
+                if viewer:
+                    login_user(viewer)
+                self.assertEqual(active_strike_counts(), {})
+                self.assertNotIn('user-strike-badge', str(display_username('newbie')))
+
+    def test_staff_profile_pills_and_no_public_strike_data(self):
+        import json
+        self.seed_strikes()
+        app.config.update(SECRET_KEY='test', SESSION_PROTECTION=None)
+        client = app.test_client()
+        with client.session_transaction() as session:
+            session['_user_id'] = str(self.admin.id)
+            session['_fresh'] = True
+        g.pop('_login_user', None)
+        html = client.get('/user/newbie').get_data(as_text=True)
+        self.assertIn('ms-1 user-strike-badge" title="2 active warning strikes"', html)
+        mapping = re.search(r'Object.entries\((.*?)\)', html).group(1)
+        self.assertEqual(json.loads(mapping), {'newbie': 2})
+        g.pop('_login_user', None)
+        html = app.test_client().get('/user/newbie').get_data(as_text=True)
+        self.assertNotIn('ms-1 user-strike-badge" title=', html)
+        mapping = re.search(r'Object.entries\((.*?)\)', html).group(1)
+        self.assertEqual(json.loads(mapping), {})
+
+    def test_dismissed_strikes_remove_pill(self):
+        from flask_login import login_user
+        from app.models import UserWarning
+        self.seed_strikes()
+        UserWarning.query.update({UserWarning.is_active: False})
+        db.session.commit()
+        g.pop('active_strike_counts', None)
+        with app.test_request_context():
+            login_user(self.admin)
+            self.assertNotIn('user-strike-badge', str(display_username('newbie')))
+
 
 if __name__ == '__main__':
     unittest.main()

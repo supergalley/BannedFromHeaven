@@ -1,10 +1,13 @@
 """Consistent presentation of usernames without changing account identifiers."""
 from datetime import datetime, timedelta
 
-from flask import g
+from flask import g, has_request_context
+from flask_login import current_user
+from sqlalchemy import func
 from markupsafe import Markup, escape
 
-from .models import User
+from .models import User, UserWarning
+from . import db
 
 
 def new_member_names():
@@ -19,6 +22,21 @@ def new_member_names():
     return g.new_member_names
 
 
+def active_strike_counts():
+    """Expose warning status only to a moderator/admin, with one query per request."""
+    if not (has_request_context() and current_user.is_authenticated
+            and (current_user.is_admin or current_user.is_moderator)):
+        return {}
+    if "active_strike_counts" not in g:
+        g.active_strike_counts = dict(
+            db.session.query(User.username, func.count(UserWarning.id))
+            .join(UserWarning, UserWarning.user_id == User.id)
+            .filter(UserWarning.is_active.is_(True))
+            .group_by(User.id, User.username).all()
+        )
+    return g.active_strike_counts
+
+
 def display_username(username):
     label = escape(username)
     if username in new_member_names():
@@ -27,6 +45,13 @@ def display_username(username):
             ' title="New member — joined within the last 30 days"'
             ' aria-label="New member — joined within the last 30 days">✨</span>'
         )
+    count = active_strike_counts().get(username, 0)
+    if count:
+        description = f"{count} active warning strike{'s' if count != 1 else ''}"
+        label += Markup(
+            ' <span class="badge rounded-pill bg-warning text-dark ms-1 user-strike-badge"'
+            ' title="{}" aria-label="{}">Strike</span>'
+        ).format(description, description)
     return label
 
 
@@ -35,4 +60,5 @@ def register_user_display(app):
 
     @app.context_processor
     def inject_new_members():
-        return {"new_member_names": sorted(new_member_names())}
+        return {"new_member_names": sorted(new_member_names()),
+                "username_strike_counts": active_strike_counts()}
