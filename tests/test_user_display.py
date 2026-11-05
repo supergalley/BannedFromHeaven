@@ -154,12 +154,12 @@ class UserDisplayTest(unittest.TestCase):
             session['_fresh'] = True
         g.pop('_login_user', None)
         html = client.get('/user/newbie').get_data(as_text=True)
-        self.assertIn('ms-1 user-strike-badge" title="2 active warning strikes"', html)
+        self.assertIn('ms-1 user-strike-badge" aria-label="2 active warning strikes"', html)
         mapping = re.search(r'Object.entries\((.*?)\)', html).group(1)
         self.assertEqual(json.loads(mapping), {'newbie': 2})
         g.pop('_login_user', None)
         html = app.test_client().get('/user/newbie').get_data(as_text=True)
-        self.assertNotIn('ms-1 user-strike-badge" title=', html)
+        self.assertNotIn('ms-1 user-strike-badge" aria-label=', html)
         mapping = re.search(r'Object.entries\((.*?)\)', html).group(1)
         self.assertEqual(json.loads(mapping), {})
 
@@ -173,6 +173,30 @@ class UserDisplayTest(unittest.TestCase):
         with app.test_request_context():
             login_user(self.admin)
             self.assertNotIn('user-strike-badge', str(display_username('newbie')))
+
+    def test_strike_pill_levels_follow_active_count(self):
+        from flask_login import login_user
+        from app.models import UserWarning
+        self.seed_strikes()
+        with app.test_request_context():
+            login_user(self.admin)
+            self.assertIn('data-strike-level="2"', str(display_username('newbie')))
+            warning = UserWarning.query.filter_by(is_active=True).first()
+            warning.is_active = False
+            db.session.commit()
+            g.pop('active_strike_counts', None)
+            self.assertIn('data-strike-level="1"', str(display_username('newbie')))
+            db.session.add_all([
+                UserWarning(user_id=1, issuer_id=self.admin.id, reason='More'),
+                UserWarning(user_id=1, issuer_id=self.admin.id, reason='More'),
+                UserWarning(user_id=1, issuer_id=self.admin.id, reason='More'),
+            ])
+            db.session.commit()
+            g.pop('active_strike_counts', None)
+            label = str(display_username('newbie'))
+            self.assertIn('data-strike-level="3"', label)
+            self.assertIn('4 active warning strikes', label)
+            self.assertIn('/moderation/users/1/strike-summary', label)
 
 
 if __name__ == '__main__':

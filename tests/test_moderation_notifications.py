@@ -439,3 +439,56 @@ class ModerationNotificationsTest(unittest.TestCase):
         self.client.post('/moderation/users/3/toggle-review', data={'reason': 'Spam review'})
         self.assertTrue(db.session.get(User, 3).needs_moderator)
         self.assertIn('Spam review', ModRoomMessage.query.one().body)
+
+    def test_strike_summary_counts_votes_since_latest_active_strike(self):
+        from datetime import datetime, timedelta
+        from app.models import UserWarning, Vote
+        now = datetime.utcnow()
+        latest = now - timedelta(days=3)
+        db.session.add(User(id=3, username='warned', email='warned@test.example', password_hash='test'))
+        db.session.get(User, 2).is_moderator = True
+        for jid in range(1, 10):
+            db.session.add(Joke(id=jid, user_id=3 if jid == 9 else 1, body='Post'))
+        db.session.flush()
+        db.session.add_all([
+            UserWarning(user_id=3, issuer_id=1, reason='Earlier', created_at=now-timedelta(days=8)),
+            UserWarning(user_id=3, issuer_id=1, reason='Latest active', created_at=latest),
+            UserWarning(user_id=3, issuer_id=1, reason='Dismissed', created_at=now-timedelta(days=1), is_active=False),
+        ])
+        for jid, value, when in [
+            (1, -1, latest-timedelta(seconds=1)),
+            (2, -1, latest+timedelta(hours=1)),
+            (3, 2, latest+timedelta(hours=2)),
+            (4, 1, latest+timedelta(hours=3)),
+            (5, -1, now+timedelta(days=1)),
+            (6, -1, latest),
+            (7, 0, latest+timedelta(hours=4)),
+            (8, 1, now-timedelta(days=7)),
+            (9, 1, latest+timedelta(hours=1)),
+        ]:
+            db.session.add(Vote(user_id=3, joke_id=jid, value=value, created_at=when))
+        db.session.commit()
+        for actor in [1, 2]:
+            self.login(actor)
+            response = self.client.get('/moderation/users/3/strike-summary')
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.headers['Cache-Control'], 'no-store')
+            self.assertEqual(response.json['active_strikes'], 2)
+            self.assertEqual(response.json['last_strike_at'], latest.isoformat() + 'Z')
+            self.assertEqual(response.json['last_strike_label'], latest.strftime('%H:%M %d-%m-%y'))
+            self.assertEqual(response.json['downvotes'], 2)
+            self.assertEqual(response.json['upvotes'], 2)
+        self.login(1)
+        empty = self.client.get('/moderation/users/1/strike-summary').json
+        self.assertIsNone(empty['last_strike_at'])
+        self.assertEqual(empty['downvotes'], 0)
+        self.assertEqual(empty['upvotes'], 0)
+
+    def test_strike_summary_is_staff_only(self):
+        self.assertEqual(self.client.get('/moderation/users/1/strike-summary').status_code, 302)
+        db.session.add(User(id=3, username='member', email='member@test.example', password_hash='test'))
+        db.session.commit()
+        self.login(3)
+        self.assertEqual(self.client.get('/moderation/users/1/strike-summary').status_code, 403)
+        self.login(1)
+        self.assertEqual(self.client.get('/moderation/users/999/strike-summary').status_code, 404)

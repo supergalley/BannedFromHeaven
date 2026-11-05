@@ -3833,6 +3833,34 @@ def get_mod_team_stats() -> list[dict]:
     return stats
 
 
+@main_bp.route("/moderation/users/<int:user_id>/strike-summary")
+@moderator_required
+def user_strike_summary(user_id):
+    from .models import UserWarning
+
+    User.query.get_or_404(user_id)
+    count, latest = db.session.query(func.count(UserWarning.id), func.max(UserWarning.created_at)).filter(
+        UserWarning.user_id == user_id, UserWarning.is_active.is_(True)
+    ).one()
+    downvotes = upvotes = 0
+    if latest:
+        downvotes, upvotes = db.session.query(
+            func.coalesce(func.sum(case((Vote.value < 0, 1), else_=0)), 0),
+            func.coalesce(func.sum(case((Vote.value > 0, 1), else_=0)), 0),
+        ).join(Joke, Joke.id == Vote.joke_id).filter(
+            Vote.user_id == user_id, Vote.user_id != Joke.user_id,
+            Vote.created_at >= latest, Vote.created_at <= datetime.utcnow(),
+        ).one()
+    response = jsonify(
+        active_strikes=count,
+        last_strike_at=latest.isoformat() + "Z" if latest else None,
+        last_strike_label=latest.strftime("%H:%M %d-%m-%y") if latest else None,
+        downvotes=int(downvotes), upvotes=int(upvotes),
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @main_bp.route("/moderation/warn/<int:user_id>", methods=["POST"])
 @moderator_required
 def moderator_warn_user(user_id):

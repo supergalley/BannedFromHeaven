@@ -1,8 +1,16 @@
+<style>
+.user-strike-badge { background-color: #198754; color: #fff; cursor: pointer; }
+.user-strike-badge[data-strike-level="2"] { background-color: #fd7e14; color: #111; }
+.user-strike-badge[data-strike-level="3"] { background-color: #dc3545; color: #fff; }
+.user-strike-badge:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.user-strike-card { position: fixed; z-index: 3100; max-width: calc(100vw - 16px); padding: 10px 12px; background: #171717; color: #fff; border: 1px solid #777; border-radius: 8px; box-shadow: 0 4px 16px #0009; font-size: 0.85rem; line-height: 1.6; }
+</style>
 <script>
 // Decorate visible labels only; forms and links retain the original username.
 (() => {
   const newMembers = new Set({{ new_member_names|tojson }});
   const strikes = new Map(Object.entries({{ username_strike_counts|tojson }}));
+  const strikeUrls = new Map(Object.entries({{ username_strike_urls|tojson }}));
   function usernameLabel(username) {
     const name = String(username || '');
     const label = document.createElement('span');
@@ -10,10 +18,16 @@
     const count = strikes.get(name) || 0;
     if (count) {
       const badge = document.createElement('span');
-      badge.className = 'badge rounded-pill bg-warning text-dark ms-1 user-strike-badge';
+      badge.className = 'badge rounded-pill ms-1 user-strike-badge';
+      badge.dataset.strikeLevel = Math.min(count, 3);
+      badge.dataset.strikeUrl = strikeUrls.get(name);
+      badge.setAttribute('role', 'button');
+      badge.tabIndex = 0;
+      badge.setAttribute('aria-haspopup', 'dialog');
+      badge.setAttribute('aria-expanded', 'false');
+      badge.setAttribute('aria-controls', 'user-strike-card');
       badge.textContent = 'Strike';
-      badge.title = count + ' active warning strike' + (count === 1 ? '' : 's');
-      badge.setAttribute('aria-label', badge.title);
+      badge.setAttribute('aria-label', count + ' active warning strike' + (count === 1 ? '' : 's'));
       label.append(' ', badge);
     }
     return label;
@@ -32,3 +46,5 @@
   };
 })();
 </script>
+
+<script src="{{ url_for('static', filename='user_strikes.js') }}" defer></script>

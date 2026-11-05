@@ -1,7 +1,7 @@
 """Consistent presentation of usernames without changing account identifiers."""
 from datetime import datetime, timedelta
 
-from flask import g, has_request_context
+from flask import g, has_request_context, url_for
 from flask_login import current_user
 from sqlalchemy import func
 from markupsafe import Markup, escape
@@ -28,12 +28,14 @@ def active_strike_counts():
             and (current_user.is_admin or current_user.is_moderator)):
         return {}
     if "active_strike_counts" not in g:
-        g.active_strike_counts = dict(
-            db.session.query(User.username, func.count(UserWarning.id))
+        rows = (
+            db.session.query(User.username, User.id, func.count(UserWarning.id))
             .join(UserWarning, UserWarning.user_id == User.id)
             .filter(UserWarning.is_active.is_(True))
             .group_by(User.id, User.username).all()
         )
+        g.active_strike_counts = {name: count for name, uid, count in rows}
+        g.active_strike_user_ids = {name: uid for name, uid, count in rows}
     return g.active_strike_counts
 
 
@@ -49,9 +51,12 @@ def display_username(username):
     if count:
         description = f"{count} active warning strike{'s' if count != 1 else ''}"
         label += Markup(
-            ' <span class="badge rounded-pill bg-warning text-dark ms-1 user-strike-badge"'
-            ' title="{}" aria-label="{}">Strike</span>'
-        ).format(description, description)
+            ' <span class="badge rounded-pill ms-1 user-strike-badge"'
+            ' aria-label="{}" role="button" tabindex="0"'
+            ' aria-haspopup="dialog" aria-expanded="false" aria-controls="user-strike-card"'
+            ' data-strike-level="{}" data-strike-url="{}">Strike</span>'
+        ).format(description, min(count, 3),
+                 url_for("main.user_strike_summary", user_id=g.active_strike_user_ids[username]))
     return label
 
 
@@ -60,5 +65,10 @@ def register_user_display(app):
 
     @app.context_processor
     def inject_new_members():
+        counts = active_strike_counts()
         return {"new_member_names": sorted(new_member_names()),
-                "username_strike_counts": active_strike_counts()}
+                "username_strike_counts": counts,
+                "username_strike_urls": {
+                    name: url_for("main.user_strike_summary", user_id=g.active_strike_user_ids[name])
+                    for name in counts
+                }}
