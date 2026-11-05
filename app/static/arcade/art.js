@@ -117,10 +117,10 @@
     ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
     const first=points[0],head=points[points.length-1];
     const skin=ctx.createLinearGradient(first.x,first.y,head.x+1,head.y+1);
-    skin.addColorStop(0,'#355e53');skin.addColorStop(.55,'#739f7a');skin.addColorStop(1,'#b6ce96');
-    smoothPath(ctx,points);ctx.strokeStyle='#163e37';ctx.lineWidth=20;ctx.stroke();
+    skin.addColorStop(0,'#92654c');skin.addColorStop(.55,'#c99a77');skin.addColorStop(1,'#e5bb99');
+    smoothPath(ctx,points);ctx.strokeStyle='#694937';ctx.lineWidth=20;ctx.stroke();
     smoothPath(ctx,points);ctx.strokeStyle=skin;ctx.lineWidth=17;ctx.stroke();
-    smoothPath(ctx,points);ctx.strokeStyle='rgba(231,255,209,.23)';ctx.lineWidth=5;ctx.stroke();
+    smoothPath(ctx,points);ctx.strokeStyle='rgba(255,239,217,.28)';ctx.lineWidth=5;ctx.stroke();
     const vessels=points.map((p,i)=>{
       const before=points[Math.max(0,i-1)],after=points[Math.min(points.length-1,i+1)];
       const dx=after.x-before.x,dy=after.y-before.y,length=Math.hypot(dx,dy)||1;
@@ -140,8 +140,15 @@
     veinCtx.strokeStyle='#fff';veinCtx.lineWidth=16.5;veinCtx.stroke();veinCtx.globalCompositeOperation='source-over';
     ctx.drawImage(veinLayer,0,0);
     ctx.translate(head.x,head.y);ctx.rotate((direction-1)*Math.PI/2);
-    const face=ctx.createLinearGradient(-8,-8,10,9);face.addColorStop(0,'#d8e8ac');face.addColorStop(.6,'#a7c58e');face.addColorStop(1,'#668f73');
-    ctx.fillStyle=face;ctx.strokeStyle='#234d40';ctx.lineWidth=1.5;
+    if(shipSprite.complete&&shipSprite.naturalWidth){
+      const scale=26/Math.max(shipSprite.naturalWidth,shipSprite.naturalHeight);
+      const width=shipSprite.naturalWidth*scale,height=shipSprite.naturalHeight*scale;
+      ctx.rotate(Math.PI/2);
+      ctx.drawImage(shipSprite,-width/2,-height/2,width,height);
+      ctx.restore();return;
+    }
+    const face=ctx.createLinearGradient(-8,-8,10,9);face.addColorStop(0,'#efd2b3');face.addColorStop(.6,'#d9ae89');face.addColorStop(1,'#ad7c5e');
+    ctx.fillStyle=face;ctx.strokeStyle='#694937';ctx.lineWidth=1.5;
     ctx.beginPath();ctx.ellipse(1,0,12,9,0,0,Math.PI*2);ctx.fill();ctx.stroke();
     ctx.fillStyle='#eaf4c8';ctx.beginPath();ctx.ellipse(4,-4,3,2.4,0,0,Math.PI*2);ctx.ellipse(4,4,3,2.4,0,0,Math.PI*2);ctx.fill();
     ctx.fillStyle='#203d34';ctx.beginPath();ctx.ellipse(4.5,-4,1,1.9,0,0,Math.PI*2);ctx.ellipse(4.5,4,1,1.9,0,0,Math.PI*2);ctx.fill();

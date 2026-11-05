@@ -6,6 +6,7 @@ Three original, self-hosted arcade games with original canvas artwork:
 - **Spunk Invaders:** swimming tadpole projectiles turn egg invaders into fading
   embryos rendered from `/static/Embryo.png`. Ten points per egg, plus 25 per wave.
 - **Hell Serpent:** steer around a 24×28 garden and collect souls; ten points each.
+  Its smooth, skin-tone body uses the same `Spaceship.png` asset for its rotating head.
 
 `core.js` holds deterministic integer-only rules. `art.js` contains the original
 canvas artwork; `play.js` supplies keyboard/touch controls, pausing, input recording
