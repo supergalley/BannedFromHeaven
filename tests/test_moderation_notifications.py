@@ -407,3 +407,35 @@ class ModerationNotificationsTest(unittest.TestCase):
         self.assertEqual(self.client.get('/moderation/room/queues', headers={'Accept': 'application/json'}).status_code, 403)
         for path in ['/moderation/review/1/approve', '/moderation/review/1/reject', '/moderation/duplicates/1/not_dupe']:
             self.assertEqual(self.client.post(path, headers={'Accept': 'application/json'}).status_code, 403)
+
+    def test_removing_review_logs_activity_without_noticeboard_note(self):
+        from app.models import AdminNotification
+        db.session.add(User(id=3, username='member', email='member@test.example', password_hash='test', needs_moderator=True))
+        db.session.add(Joke(id=1, body='Member joke', user_id=3))
+        db.session.add(ModRoomMessage(user_id=1, body='Manual team note'))
+        db.session.commit()
+        for actor in [1, 2]:
+            self.login(actor)
+            for path in ['/moderation/users/3/toggle-review', '/moderation/jokes/1/toggle-author-review']:
+                with self.subTest(actor=actor, path=path):
+                    target = db.session.get(User, 3)
+                    target.needs_moderator = True
+                    target.needs_mod_reason = 'Old reason'
+                    db.session.commit()
+                    count = AdminNotification.query.count()
+                    response = self.client.post(path)
+                    self.assertEqual(response.status_code, 302)
+                    self.assertFalse(db.session.get(User, 3).needs_moderator)
+                    self.assertIsNone(db.session.get(User, 3).needs_mod_reason)
+                    self.assertEqual(ModRoomMessage.query.count(), 1)
+                    self.assertEqual(ModRoomMessage.query.one().body, 'Manual team note')
+                    self.assertEqual(AdminNotification.query.count(), count + 1)
+                    self.assertIn('marked as safe', AdminNotification.query.order_by(AdminNotification.id.desc()).first().message)
+
+    def test_placing_user_on_review_keeps_existing_noticeboard_update(self):
+        db.session.add(User(id=3, username='member', email='member@test.example', password_hash='test', needs_moderator=False))
+        db.session.commit()
+        self.login(1)
+        self.client.post('/moderation/users/3/toggle-review', data={'reason': 'Spam review'})
+        self.assertTrue(db.session.get(User, 3).needs_moderator)
+        self.assertIn('Spam review', ModRoomMessage.query.one().body)

@@ -4285,11 +4285,12 @@ def toggle_user_review(user_id):
         target_user_id=user.id,
     )
     db.session.add(note)
-    mod_msg = ModRoomMessage(
-        user_id=current_user.id,
-        body=f"🛡️ **Moderation Update**: {action_msg}",
-    )
-    db.session.add(mod_msg)
+    if user.needs_moderator:
+        mod_msg = ModRoomMessage(
+            user_id=current_user.id,
+            body=f"🛡️ **Moderation Update**: {action_msg}",
+        )
+        db.session.add(mod_msg)
     db.session.commit()
     return redirect(request.referrer or url_for("main.user_profile", username=user.username))
 
@@ -4335,11 +4336,12 @@ def toggle_joke_author_review(joke_id):
         target_joke_id=joke.id,
     )
     db.session.add(note)
-    mod_msg = ModRoomMessage(
-        user_id=current_user.id,
-        body=f"🛡️ **Moderation Update**: {action_msg}",
-    )
-    db.session.add(mod_msg)
+    if author.needs_moderator:
+        mod_msg = ModRoomMessage(
+            user_id=current_user.id,
+            body=f"🛡️ **Moderation Update**: {action_msg}",
+        )
+        db.session.add(mod_msg)
     db.session.commit()
     return redirect(url_for("main.joke_detail", joke_id=joke.id))
 
