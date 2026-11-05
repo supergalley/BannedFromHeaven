@@ -36,7 +36,7 @@
         <td class="small">{{ a.created_at.strftime('%Y-%m-%d %H:%M') if a.created_at else '' }}</td>
         <td>
           {% if a.appellant %}
-            <a href="{{ url_for('main.user_profile', username=a.appellant.username) }}">{{ a.appellant.username }}</a>
+            <a href="{{ url_for('main.user_profile', username=a.appellant.username) }}">{{ (a.appellant.username)|display_username }}</a>
             {% if a.appellant.duplicate_appeals_banned %}
               <span class="badge bg-danger">appeals blocked</span>
             {% endif %}

@@ -147,6 +147,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
     forum_last_seen_at = db.Column(db.DateTime, nullable=True)
+    last_activity_at = db.Column(db.DateTime, nullable=True)
     is_admin = db.Column(db.Boolean, default=False)
     is_moderator = db.Column(db.Boolean, default=False)
     needs_moderator = db.Column(db.Boolean, default=True, nullable=False)
@@ -672,6 +673,19 @@ class Message(db.Model):
         foreign_keys=[recipient_id],
         back_populates="received_messages",
     )
+    attachment = db.relationship(
+        "MessageImage", uselist=False, cascade="all, delete-orphan",
+        back_populates="message",
+    )
+
+
+class MessageImage(db.Model):
+    __tablename__ = "message_images"
+
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, db.ForeignKey("messages.id"), nullable=False, unique=True)
+    filename = db.Column(db.String(64), nullable=False, unique=True)
+    message = db.relationship("Message", back_populates="attachment")
 
 
 class MessageBlock(db.Model):
@@ -763,6 +777,44 @@ class ModRoomMessage(db.Model):
     is_pinned = db.Column(db.Boolean, default=False, nullable=False)
 
     author = db.relationship("User", foreign_keys=[user_id])
+    reactions = db.relationship("ModRoomReaction", foreign_keys="ModRoomReaction.note_id",
+                                cascade="all, delete-orphan", lazy="selectin")
+    replies = db.relationship(
+        "ModRoomReply", back_populates="note", cascade="all, delete-orphan",
+        order_by="ModRoomReply.created_at, ModRoomReply.id", lazy="selectin",
+    )
+
+
+class ModRoomReply(db.Model):
+    """A reply attached to a moderator noticeboard note."""
+    __tablename__ = "mod_room_replies"
+
+    id = db.Column(db.Integer, primary_key=True)
+    note_id = db.Column(db.Integer, db.ForeignKey("mod_room_messages.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    body = db.Column(db.Text, nullable=False)
+
+    note = db.relationship("ModRoomMessage", back_populates="replies")
+    author = db.relationship("User", foreign_keys=[user_id], lazy="joined")
+    reactions = db.relationship("ModRoomReaction", foreign_keys="ModRoomReaction.reply_id",
+                                cascade="all, delete-orphan", lazy="selectin")
+
+
+class ModRoomReaction(db.Model):
+    """One emoji reaction per team member on a note or reply."""
+    __tablename__ = "mod_room_reactions"
+    __table_args__ = (
+        db.CheckConstraint("(note_id IS NOT NULL AND reply_id IS NULL) OR (note_id IS NULL AND reply_id IS NOT NULL)", name="mod_reaction_one_target"),
+        UniqueConstraint("note_id", "user_id", name="mod_note_reaction_user"),
+        UniqueConstraint("reply_id", "user_id", name="mod_reply_reaction_user"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    note_id = db.Column(db.Integer, db.ForeignKey("mod_room_messages.id"), index=True)
+    reply_id = db.Column(db.Integer, db.ForeignKey("mod_room_replies.id"), index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    reaction_type = db.Column(db.String(20), nullable=False)
 
 
 class UserWarning(db.Model):
@@ -1065,3 +1117,11 @@ class SiteSettings(db.Model):
         if isinstance(theme, dict):
             base.update(theme)
         self.marquee_theme_json = json.dumps(base, ensure_ascii=False)
+
+
+class ModerationAcknowledgement(db.Model):
+    """Global notification acknowledgements; findings remain in their queues."""
+    __tablename__ = "moderation_acknowledgements"
+    kind = db.Column(db.String(20), primary_key=True)
+    finding_id = db.Column(db.Integer, primary_key=True)
+    acknowledged_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

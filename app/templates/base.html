@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+    {% include "user_display_script.html" %}
     {# ---- SEO defaults ---- #}
     {% if canonical_url %}
       <link rel="canonical" href="{{ canonical_url }}">
@@ -1112,11 +1113,11 @@
             x-content-detected="none"><span class="bfh-nav-icon">😈</span></a>
         {% endif %}
         {% if current_user.is_authenticated and (current_user.is_admin or current_user.is_moderator) %}
-          <a class="bfh-nav-btn bfh-nav-row2 moderator-badge {% if (pending_review_count and pending_review_count > 0) or (pending_dupe_count is defined and pending_dupe_count > 0) %}moderator-review-glow{% endif %}"
-            href="{{ url_for('main.moderators_room') }}"
+          <a id="mod-room-nav" class="bfh-nav-btn bfh-nav-row2 moderator-badge {% if (pending_review_count and pending_review_count > 0) or (pending_dupe_count is defined and pending_dupe_count > 0) %}moderator-review-glow{% endif %}"
+            href="{{ url_for('main.moderators_room') }}{{ '#review-queue' if pending_review_count else '#duplicates-queue' if pending_dupe_count else '' }}"
             title="Moderators Room & Review Queues"
             x-content-detected="none">
-            🛡️ Mod Room{% if pending_review_count and pending_review_count > 0 %} ({{ pending_review_count }}){% endif %}{% if pending_dupe_count is defined and pending_dupe_count > 0 %} · 👯{{ pending_dupe_count }}{% endif %}
+            🛡️ Mod Room<span id="mod-room-nav-count">{% if pending_review_count and pending_review_count > 0 %} ({{ pending_review_count }}){% endif %}{% if pending_dupe_count is defined and pending_dupe_count > 0 %} · 👯{{ pending_dupe_count }}{% endif %}</span>
           </a>
         {% endif %}
       </div>
@@ -1143,7 +1144,7 @@
                     id="user-menu-toggle"
                     title="{% if has_unseen_joke_comments %}New comments on your posts. {% endif %}{% if has_unseen_followed_comments %}New comments on followed posts.{% endif %}">
               <div class="d-flex flex-column lh-1 text-start">
-                <span class="small">{{ current_user.username }}</span>
+                <span class="small">{{ (current_user.username)|display_username }}</span>
                 <span>☰</span>
               </div>
             </button>
@@ -1391,7 +1392,7 @@
 
   function openBanModal(userId, username, currentReason) {
     form.action = "/moderation/ban/" + encodeURIComponent(userId);
-    userSpan.textContent = username || ("User #" + userId);
+    userSpan.textContent = window.bfhDisplayUsername(username) || ("User #" + userId);
     if (customReason) customReason.value = currentReason || "";
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
@@ -1489,7 +1490,7 @@
 
   function openWarnModal(userId, username) {
     form.action = "/moderation/warn/" + encodeURIComponent(userId);
-    userSpan.textContent = username || ("User #" + userId);
+    userSpan.textContent = window.bfhDisplayUsername(username) || ("User #" + userId);
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
   }
@@ -1576,7 +1577,7 @@
 
   function openReviewModal(actionUrl, username) {
     form.action = actionUrl;
-    userSpan.textContent = username || "this user";
+    userSpan.textContent = window.bfhDisplayUsername(username) || "this user";
     if (notes) notes.value = "";
     if (preset) preset.selectedIndex = 0;
     modal.classList.add("is-open");
@@ -1751,7 +1752,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let arrow = '🔥';
     if (value === 2) { kind = 'super'; arrow = '💥'; }
     else if (value === -1) { kind = 'down'; arrow = '💩'; }
-    const name = String(v.username || '?');
+    const name = window.bfhDisplayUsername(v.username || '?');
     // Escape HTML in username
     const esc = name.replace(/[&<>"']/g, (c) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'

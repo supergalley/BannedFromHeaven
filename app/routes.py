@@ -28,6 +28,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import StaleDataError
 from werkzeug.utils import secure_filename
 from . import db
+from .message_images import image_folder, limit_message_upload, save_message
 from .models import (
     Joke,
     JokeDraft,
@@ -40,6 +41,7 @@ from .models import (
     User,
     SiteSettings,
     Message,
+    MessageImage,
     MessageBlock,
     PageView,
     QuarantinedJoke,
@@ -249,22 +251,29 @@ def normalize_salute_to(raw, actor_username=None):
 
 main_bp = Blueprint("main", __name__)
 
+def moderation_notification_queries():
+    from .models import JokeDupePair, ModerationAcknowledgement
+
+    def unseen(model, kind):
+        ids = db.session.query(ModerationAcknowledgement.finding_id).filter_by(kind=kind)
+        return model.query.filter(~model.id.in_(ids))
+
+    return (unseen(Joke, "review").filter_by(review_status="pending"),
+            unseen(JokeDupePair, "duplicate").filter_by(status="pending").filter(JokeDupePair.score >= 0.75))
+
+
 @main_bp.app_context_processor
 def inject_pending_review_count():
-    if current_user.is_authenticated and (
-        current_user.is_admin or current_user.is_moderator
-    ):
+    counts = dict(pending_review_count=0, pending_dupe_count=0,
+                  pending_dupe_high_count=0, pending_dupe_medium_count=0)
+    if current_user.is_authenticated and (current_user.is_admin or current_user.is_moderator):
         from .models import JokeDupePair
+        reviews, duplicates = moderation_notification_queries()
+        counts.update(pending_review_count=reviews.count(), pending_dupe_count=duplicates.count(),
+                      pending_dupe_high_count=duplicates.filter(JokeDupePair.score >= 0.90).count(),
+                      pending_dupe_medium_count=duplicates.filter(JokeDupePair.score < 0.90).count())
+    return counts
 
-        return {
-            "pending_review_count": Joke.query.filter_by(
-                review_status="pending"
-            ).count(),
-            "pending_dupe_count": JokeDupePair.query.filter_by(
-                status="pending"
-            ).count(),
-        }
-    return {"pending_review_count": 0, "pending_dupe_count": 0}
 
 def _uploads_serializer():
     return URLSafeTimedSerializer(
@@ -1653,11 +1662,18 @@ def user_profile(username):
         query = query.order_by(Joke.score.desc(), Joke.created_at.desc())
     jokes = query.all()
 
+    public_comment_count = Comment.query.filter(
+        Comment.user_id == user.id,
+        Comment.joke_id.in_(approved_jokes_query().with_entities(Joke.id)),
+    ).count()
+
     resp = make_response(
         render_template(
             "user_profile.html",
             profile_user=user,
             jokes=jokes,
+            public_post_count=len(jokes),
+            public_comment_count=public_comment_count,
             sort=sort,
         )
     )
@@ -3129,6 +3145,24 @@ def sent_messages():
     return render_template("messages_sent.html", messages=messages)
 
 
+@main_bp.route("/static/msg/<filename>")
+@login_required
+def message_image(filename):
+    attachment = MessageImage.query.filter_by(filename=filename).first_or_404()
+    msg = attachment.message
+    if not (
+        (current_user.id == msg.sender_id and not msg.deleted_by_sender)
+        or (current_user.id == msg.recipient_id and not msg.deleted_by_recipient)
+    ):
+        abort(404)
+    response = send_from_directory(
+        image_folder(), attachment.filename, mimetype="image/webp", max_age=0
+    )
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
 @main_bp.route("/messages/<int:message_id>", methods=["GET", "POST"])
 @login_required
 def view_message(message_id):
@@ -3154,12 +3188,14 @@ def view_message(message_id):
 
     # Handle reply
     if request.method == "POST":
+        limit_message_upload()
+        if MessageBlock.query.filter_by(
+            blocker_id=other_user.id, blocked_id=current_user.id
+        ).first():
+            flash("This user is not accepting messages from you.", "danger")
+            return redirect(url_for("main.view_message", message_id=message_id))
         body = (request.form.get("body") or "").strip()
         subject = (request.form.get("subject") or "").strip()
-
-        if not body:
-            flash("Message cannot be empty.", "danger")
-            return redirect(url_for("main.view_message", message_id=message_id))
 
         # Reuse subject if blank
         if not subject:
@@ -3171,8 +3207,11 @@ def view_message(message_id):
             subject=subject,
             body=body,
         )
-        db.session.add(reply)
-        db.session.commit()
+        try:
+            save_message(reply)
+        except ValueError as exc:
+            flash(str(exc), "danger")
+            return redirect(url_for("main.view_message", message_id=message_id))
 
         # Jump into the thread using the new message id
         return redirect(url_for("main.view_message", message_id=reply.id))
@@ -3302,20 +3341,21 @@ def send_message(username):
         return redirect(url_for("main.user_profile", username=recipient.username))
 
     if request.method == "POST":
+        limit_message_upload()
         subject = request.form.get("subject", "").strip() or None
         body = request.form.get("body", "").strip()
         body = maybe_sanitize_post_html(body, current_user)
-        if not body:
-            flash("Message body is required.", "danger")
+        msg = Message(
+            sender_id=current_user.id,
+            recipient_id=recipient.id,
+            subject=subject,
+            body=body,
+        )
+        try:
+            save_message(msg)
+        except ValueError as exc:
+            flash(str(exc), "danger")
         else:
-            msg = Message(
-                sender_id=current_user.id,
-                recipient_id=recipient.id,
-                subject=subject,
-                body=body,
-            )
-            db.session.add(msg)
-            db.session.commit()
             flash("Message sent.", "success")
             return redirect(url_for("main.inbox"))
 
@@ -3731,7 +3771,11 @@ def get_sockpuppet_matches(limit: int = 35) -> list[dict]:
         if len(uids) > 1:
             all_user_ids.update(uids)
 
-    users_by_id = {u.id: u for u in User.query.filter(User.id.in_(all_user_ids)).all()}
+    test_account_names = ("supergalley", "qwertyuiop", "wasp", "vapeman")
+    users_by_id = {
+        u.id: u for u in User.query.filter(User.id.in_(all_user_ids)).all()
+        if not any(name in u.username.lower() for name in test_account_names)
+    }
 
     clusters = []
     for ip, uids in ip_to_users.items():
@@ -3892,6 +3936,110 @@ def moderator_dismiss_warning(warning_id):
     return redirect(request.referrer or url_for("main.moderators_room"))
 
 
+MODERATION_REJECTION_REASONS = (
+    "Rubbish", "Illegal", "Repeat Post", "Wrong Category", "Not A Joke",
+    "Low Effort", "Shitty Bandwagon", "Wasp-Like", "Spam",
+)
+
+
+def moderation_queue_context(kind):
+    from .models import JokeDupePair
+
+    unseen_reviews, unseen_duplicates = moderation_notification_queries()
+    if kind == "review":
+        pending = Joke.query.filter_by(review_status="pending")
+        order = (Joke.created_at.asc(), Joke.id.asc())
+        item = unseen_reviews.order_by(*order).first() or pending.order_by(*order).first()
+        return dict(queue_kind=kind, review_item=item, review_total=pending.count(),
+                    rejection_reasons=MODERATION_REJECTION_REASONS)
+    pending = JokeDupePair.query.filter_by(status="pending").filter(JokeDupePair.score >= 0.75)
+    order = (JokeDupePair.score.desc(), JokeDupePair.created_at.asc(), JokeDupePair.id.asc())
+    pair = unseen_duplicates.order_by(*order).first() or pending.order_by(*order).first()
+    return dict(queue_kind=kind, dupe_pair=pair, dupe_total=pending.count(),
+                dupe_high_total=pending.filter(JokeDupePair.score >= 0.90).count(),
+                dupe_medium_total=pending.filter(JokeDupePair.score < 0.90).count(),
+                dupe_newer=db.session.get(Joke, pair.joke_newer_id) if pair else None,
+                dupe_older=db.session.get(Joke, pair.joke_older_id) if pair else None)
+
+
+def render_moderation_queues():
+    return {name: render_template("moderation_queue.html", **moderation_queue_context(name))
+            for name in ("review", "duplicates")}
+
+
+def moderation_queue_result(message="", kind="review", status=200):
+    if request.accept_mimetypes.best == "application/json":
+        response = jsonify(
+            message=message,
+            error=message if status >= 400 else None,
+            queues=render_moderation_queues(),
+            notifications=inject_pending_review_count(),
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return response, status
+    if message:
+        flash(message, "success" if status == 200 else "info")
+    anchor = "review-queue" if kind == "review" else "duplicates-queue"
+    return redirect(url_for("main.moderators_room") + "#" + anchor)
+
+
+@main_bp.route("/moderation/room/queues")
+@moderator_required
+def moderation_room_queues():
+    return moderation_queue_result()
+
+
+def get_serial_downvoters(now):
+    """Rank current, non-self votes recorded in the trailing seven days."""
+    cutoff = now - timedelta(days=7)
+    downs = func.sum(case((Vote.value < 0, 1), else_=0))
+    ups = func.sum(case((Vote.value > 0, 1), else_=0))
+    rows = (
+        db.session.query(User, downs.label("downs"), ups.label("ups"))
+        .join(Vote, Vote.user_id == User.id)
+        .join(Joke, Joke.id == Vote.joke_id)
+        .filter(Vote.created_at >= cutoff, Vote.created_at <= now, Vote.user_id != Joke.user_id)
+        .group_by(User.id).having(downs > 0)
+        .order_by(downs.desc(), func.lower(User.username).asc(), User.id.asc())
+        .limit(5).all()
+    )
+    entries = {u.id: dict(user=u, downvotes=int(d), upvotes=int(up),
+                         downvote_percent=round(100 * d / (d + up)), jokes=[])
+               for u, d, up in rows}
+    if entries:
+        month_cutoff = now - timedelta(days=30)
+        totals = (
+            db.session.query(
+                Vote.user_id,
+                func.sum(case((and_(Vote.value > 0, Vote.created_at >= month_cutoff), 1), else_=0)),
+                func.sum(case((and_(Vote.value < 0, Vote.created_at >= month_cutoff), 1), else_=0)),
+                ups, downs,
+            )
+            .join(Joke, Joke.id == Vote.joke_id)
+            .filter(Vote.user_id.in_(entries), Vote.created_at <= now, Vote.user_id != Joke.user_id)
+            .group_by(Vote.user_id).all()
+        )
+        for uid, month_up, month_down, all_up, all_down in totals:
+            entry = entries[uid]
+            entry["periods"] = [
+                dict(label="Week (7 days)", upvotes=entry["upvotes"], downvotes=entry["downvotes"]),
+                dict(label="Month (30 days)", upvotes=int(month_up), downvotes=int(month_down)),
+                dict(label="All time", upvotes=int(all_up), downvotes=int(all_down)),
+            ]
+        votes = (
+            db.session.query(Vote, Joke, User.username)
+            .join(Joke, Joke.id == Vote.joke_id)
+            .join(User, User.id == Joke.user_id)
+            .filter(Vote.user_id.in_(entries), Vote.value < 0,
+                    Vote.created_at >= cutoff, Vote.created_at <= now,
+                    Vote.user_id != Joke.user_id)
+            .order_by(Vote.created_at.desc(), Vote.id.desc()).all()
+        )
+        for vote, joke, author in votes:
+            entries[vote.user_id]["jokes"].append(dict(joke=joke, voted_at=vote.created_at, author=author))
+    return list(entries.values())
+
+
 @main_bp.route("/moderation/room")
 @moderator_required
 def moderators_room():
@@ -3941,11 +4089,11 @@ def moderators_room():
     sockpuppet_clusters = get_sockpuppet_matches(limit=25)
     mod_stats = get_mod_team_stats()
 
-    pending_review_count = approved_jokes_query().filter_by(review_status="pending").count()
-    pending_dupe_count = JokeDupePair.query.filter_by(status="pending").count()
 
     return render_template(
         "moderation_room.html",
+        queue_panels=render_moderation_queues(),
+        serial_downvoters=get_serial_downvoters(now),
         banned_users=banned_users,
         recent_bans=recent_bans,
         suspicious_users=suspicious_users,
@@ -3954,11 +4102,29 @@ def moderators_room():
         recent_actions=recent_actions,
         team_members=team_members,
         sockpuppet_clusters=sockpuppet_clusters,
+        noticeboard_reaction_types=REACTION_TYPES,
         mod_stats=mod_stats,
-        pending_review_count=pending_review_count,
-        pending_dupe_count=pending_dupe_count,
         now=now,
     )
+
+
+@main_bp.route("/moderation/room/acknowledge", methods=["POST"])
+@moderator_required
+def acknowledge_moderation_notifications():
+    if not current_user.is_admin:
+        abort(403)
+    from .models import ModerationAcknowledgement
+
+    reviews, duplicates = moderation_notification_queries()
+    for kind, query in (("review", reviews), ("duplicate", duplicates)):
+        for finding in query.all():
+            db.session.merge(ModerationAcknowledgement(kind=kind, finding_id=finding.id))
+    db.session.add(AdminNotification(
+        action="Acknowledge moderation notifications",
+        message=f"{current_user.username} acknowledged current review and duplicate alerts for all moderators.",
+        performed_by_id=current_user.id))
+    db.session.commit()
+    return moderation_queue_result("Current notifications cleared for all admins and moderators. Findings remain available for review.")
 
 
 @main_bp.route("/moderation/room/messages", methods=["POST"])
@@ -3981,6 +4147,75 @@ def mod_room_post_message():
     db.session.commit()
     flash("Moderator note posted.", "success")
     return redirect(url_for("main.moderators_room"))
+
+
+@main_bp.route("/moderation/room/<target_kind>/<int:target_id>/react", methods=["POST"])
+@moderator_required
+def mod_room_react(target_kind, target_id):
+    from .models import ModRoomMessage, ModRoomReply, ModRoomReaction
+
+    wants_json = request.accept_mimetypes.best == "application/json"
+
+    if target_kind not in ("notes", "replies"):
+        abort(404)
+    reaction_type = request.form.get("reaction_type", "")
+    if reaction_type not in REACTION_TYPES:
+        abort(400)
+    model = ModRoomMessage if target_kind == "notes" else ModRoomReply
+    target = model.query.get_or_404(target_id)
+    target_filter = {"note_id" if target_kind == "notes" else "reply_id": target.id}
+    existing = ModRoomReaction.query.filter_by(user_id=current_user.id, **target_filter).first()
+    if existing and existing.reaction_type == reaction_type:
+        db.session.delete(existing)
+    elif existing:
+        existing.reaction_type = reaction_type
+    else:
+        db.session.add(ModRoomReaction(user_id=current_user.id, reaction_type=reaction_type, **target_filter))
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        if wants_json:
+            return jsonify(error="Your reaction changed in another request. Please try again."), 409
+        flash("Your reaction changed in another request. Please try again.", "info")
+    if wants_json:
+        rows = db.session.query(
+            ModRoomReaction.reaction_type, func.count(ModRoomReaction.id)
+        ).filter_by(**target_filter).group_by(ModRoomReaction.reaction_type).all()
+        mine = ModRoomReaction.query.filter_by(user_id=current_user.id, **target_filter).first()
+        return jsonify(counts=dict(rows), user_reaction=mine.reaction_type if mine else None)
+    note_id = target.id if target_kind == "notes" else target.note_id
+    return redirect(url_for("main.moderators_room") + f"#mod-note-{note_id}")
+
+
+@main_bp.route("/moderation/room/messages/<int:message_id>/reply", methods=["POST"])
+@moderator_required
+def mod_room_reply_message(message_id):
+    from .models import ModRoomMessage, ModRoomReply
+
+    note = ModRoomMessage.query.get_or_404(message_id)
+    body = (request.form.get("body") or "").strip()
+    if not body:
+        flash("Reply content cannot be empty.", "warning")
+    else:
+        db.session.add(ModRoomReply(note=note, user_id=current_user.id, body=body))
+        db.session.commit()
+        flash("Reply posted.", "success")
+    return redirect(url_for("main.moderators_room") + f"#mod-note-{note.id}")
+
+
+@main_bp.route("/moderation/room/messages/<int:message_id>/unpin", methods=["POST"])
+@moderator_required
+def mod_room_unpin_message(message_id):
+    from .models import ModRoomMessage
+
+    msg = ModRoomMessage.query.get_or_404(message_id)
+    if msg.user_id != current_user.id and not current_user.is_admin:
+        abort(403)
+    msg.is_pinned = False
+    db.session.commit()
+    flash("Note unpinned.", "success")
+    return redirect(url_for("main.moderators_room") + "#mod-noticeboard")
 
 
 @main_bp.route("/moderation/room/messages/<int:message_id>/delete", methods=["POST"])
@@ -4183,8 +4418,7 @@ def quarantine_joke(joke_id):
 @main_bp.route("/moderation/review")
 @moderator_required
 def moderation_review():
-    items = Joke.query.filter_by(review_status="pending").order_by(Joke.created_at.asc()).all()
-    return render_template("moderation_review.html", items=items)
+    return redirect(url_for("main.moderators_room") + "#review-queue")
 
 
 @main_bp.route("/moderation/categories", methods=["GET", "POST"])
@@ -4353,6 +4587,9 @@ def moderation_duplicates():
     """Moderator queue: near-duplicate pairs + de-duplication action log."""
     from .models import JokeDupePair, DupeModerationLog
 
+    if request.method == "GET" and request.args.get("view") != "log":
+        return redirect(url_for("main.moderators_room") + "#duplicates-queue")
+
     # Admin-only: delete selected log lines
     if request.method == "POST" and request.form.get("form") == "dupe_log_delete":
         if not current_user.is_admin:
@@ -4372,32 +4609,7 @@ def moderation_duplicates():
             ).delete(synchronize_session=False)
             db.session.commit()
             flash(f"Deleted {n} log entr{'y' if n == 1 else 'ies'}.", "success")
-        return redirect(url_for("main.moderation_duplicates") + "#dupe-log")
-
-    # Confidence band for the queue (score is 0..1 from scanner)
-    # high  >= 0.90  (default)  |  medium >= 0.75 (includes high)
-    conf = (request.args.get("conf") or "high").strip().lower()
-    if conf not in ("high", "medium"):
-        conf = "high"
-    min_score = 0.90 if conf == "high" else 0.75
-
-    pairs_q = (
-        JokeDupePair.query.filter_by(status="pending")
-        .filter(JokeDupePair.score >= min_score)
-        .order_by(JokeDupePair.score.desc(), JokeDupePair.created_at.asc())
-    )
-    pairs = pairs_q.limit(100).all()
-    # Counts for the radio labels (pending only)
-    pending_base = JokeDupePair.query.filter_by(status="pending")
-    count_high = pending_base.filter(JokeDupePair.score >= 0.90).count()
-    count_medium = pending_base.filter(JokeDupePair.score >= 0.75).count()
-
-    # Preload jokes
-    ids = set()
-    for p in pairs:
-        ids.add(p.joke_older_id)
-        ids.add(p.joke_newer_id)
-    jokes = {j.id: j for j in Joke.query.filter(Joke.id.in_(ids)).all()} if ids else {}
+        return redirect(url_for("main.moderation_duplicates", view="log") + "#dupe-log")
 
     log_entries = (
         DupeModerationLog.query.order_by(DupeModerationLog.created_at.desc())
@@ -4406,13 +4618,7 @@ def moderation_duplicates():
     )
     return render_template(
         "moderation_duplicates.html",
-        pairs=pairs,
-        jokes=jokes,
         log_entries=log_entries,
-        conf=conf,
-        min_score=min_score,
-        count_high=count_high,
-        count_medium=count_medium,
     )
 
 
@@ -4422,16 +4628,22 @@ def moderation_duplicates_action(pair_id, action):
     from .duplicates import resolve_dupe_pair
     from .models import JokeDupePair
 
-    pair = JokeDupePair.query.get_or_404(pair_id)
     if action not in ("delete_newer", "not_dupe"):
-        flash("Unknown action.", "danger")
-        return redirect(url_for("main.moderation_duplicates"))
+        abort(400)
+    pair = JokeDupePair.query.get_or_404(pair_id)
+    # Serialize pending-pair actions so two moderators cannot archive the same post twice.
+    claimed = JokeDupePair.query.filter_by(id=pair.id, status="pending").update(
+        {JokeDupePair.reviewed_by_id: current_user.id}, synchronize_session="fetch")
+    if not claimed:
+        db.session.rollback()
+        return moderation_queue_result("This pair was already reviewed. Loaded the next pair.", "duplicates", 409)
+    if action == "delete_newer" and not db.session.get(Joke, pair.joke_older_id):
+        db.session.rollback()
+        return moderation_queue_result(
+            "The original post is no longer available. Mark this pair as Not Duplicate to clear it.",
+            "duplicates", 400)
     msg = resolve_dupe_pair(pair, action=action, actor=current_user)
-    flash(msg, "success")
-    conf = (request.args.get("conf") or request.form.get("conf") or "high").strip()
-    if conf not in ("high", "medium"):
-        conf = "high"
-    return redirect(url_for("main.moderation_duplicates", conf=conf))
+    return moderation_queue_result(msg, "duplicates")
 
 
 @main_bp.route("/appeals/duplicate/<int:archived_id>", methods=["GET", "POST"])
@@ -4557,33 +4769,41 @@ def api_internal_dupe_pairs():
 @main_bp.route("/moderation/review/<int:joke_id>/approve", methods=["POST"])
 @moderator_required
 def moderation_approve(joke_id):
-    joke = Joke.query.get_or_404(joke_id)
-    if joke.review_status != "pending":
-        flash("That item is not pending review.", "info")
-        return redirect(url_for("main.moderation_review"))
-    joke.review_status = "approved"
-    joke.reviewed_at = datetime.utcnow()
-    joke.reviewed_by_id = current_user.id
+    joke = db.session.get(Joke, joke_id)
+    if not joke or joke.review_status != "pending":
+        return moderation_queue_result("That item was already reviewed. Loaded the next submission.", status=409)
+    claimed = Joke.query.filter_by(id=joke.id, review_status="pending").update(
+        {Joke.review_status: "approved", Joke.reviewed_at: datetime.utcnow(),
+         Joke.reviewed_by_id: current_user.id}, synchronize_session="fetch")
+    if not claimed:
+        db.session.rollback()
+        return moderation_queue_result("That item was already reviewed. Loaded the next submission.", status=409)
     existing_vote = Vote.query.filter_by(user_id=joke.user_id, joke_id=joke.id).first()
     if not existing_vote:
         db.session.add(Vote(user_id=joke.user_id, joke_id=joke.id, value=1))
         joke.score += 1
         joke.author.reputation += 1
     db.session.commit()
-    flash("Submission approved.", "success")
-    return redirect(url_for("main.moderation_review"))
+    return moderation_queue_result("Submission approved.")
 @main_bp.route("/moderation/review/<int:joke_id>/reject", methods=["POST"])
 @moderator_required
 def moderation_reject(joke_id):
-    joke = Joke.query.get_or_404(joke_id)
-    if joke.review_status != "pending":
-        flash("That item is not pending review.", "info")
-        return redirect(url_for("main.moderation_review"))
-    allowed = ["Rubbish", "Illegal", "Repeat Post", "Wrong Category", "Not A Joke", "Low Effort", "Shitty Bandwagon", "Wasp-Like", "Spam"]
+    joke = db.session.get(Joke, joke_id)
+    if not joke or joke.review_status != "pending":
+        return moderation_queue_result("That item was already reviewed. Loaded the next submission.", status=409)
+    allowed = MODERATION_REJECTION_REASONS
     reasons = [r for r in request.form.getlist("reasons") if r in allowed]
     if not reasons:
-        flash("Select at least one rejection reason.", "danger")
-        return redirect(url_for("main.moderation_review"))
+        if request.accept_mimetypes.best == "application/json":
+            return jsonify(error="Select a rejection reason."), 400
+        flash("Select a rejection reason.", "danger")
+        return redirect(url_for("main.moderators_room") + "#review-queue")
+    claimed = Joke.query.filter_by(id=joke.id, review_status="pending").update(
+        {Joke.review_status: "rejected", Joke.reviewed_at: datetime.utcnow(),
+         Joke.reviewed_by_id: current_user.id}, synchronize_session="fetch")
+    if not claimed:
+        db.session.rollback()
+        return moderation_queue_result("That item was already reviewed. Loaded the next submission.", status=409)
     moderator = User.query.filter_by(username="Moderator").first()
     if not moderator:
         moderator = User(username="Moderator", email="moderator@bannedfromheaven.local", needs_moderator=False)
@@ -4607,8 +4827,7 @@ def moderation_reject(joke_id):
     joke.reject_reasons = ", ".join(reasons)
     db.session.add(msg)
     db.session.commit()
-    flash("Submission rejected and user notified.", "success")
-    return redirect(url_for("main.moderation_review"))
+    return moderation_queue_result("Submission rejected and user notified.")
 
 @main_bp.route("/messages/unblock/<int:user_id>", methods=["POST"])
 @login_required

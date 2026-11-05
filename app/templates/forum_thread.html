@@ -31,7 +31,7 @@
     <small style="color:#bfbfbf; font-size:0.85rem;">
       {% if thread.author and thread.author.username %}
         <a href="{{ url_for('main.user_profile', username=thread.author.username) }}">
-          {{ thread.author.username }}
+          {{ (thread.author.username)|display_username }}
         </a>
       {% else %}
         <span class="muted">Unknown user</span>
@@ -94,7 +94,7 @@
       <div class="joke-card {% if reply.id in new_reply_ids %}glow-green{% endif %}" id="forum-reply-{{ reply.id }}">
         {% if reply.quoted_reply %}
           <div class="quoted-comment-box">
-            <div class="small text-muted mb-1">Quoted {{ reply.quoted_reply.author.username }}:</div>
+            <div class="small text-muted mb-1">Quoted {{ (reply.quoted_reply.author.username)|display_username }}:</div>
             <div style="white-space:pre-wrap;">
               {% if reply.quoted_reply.author and (reply.quoted_reply.author.is_admin or reply.quoted_reply.author.is_moderator) %}
                 {{ reply.quoted_reply.body|safe }}
@@ -112,7 +112,7 @@
           {% endif %}
         </p>
         <small style="color:#bfbfbf; font-size:0.8rem;">
-          {{ reply.author.username }}
+          {{ (reply.author.username)|display_username }}
           {% set medals = user_medals.get(reply.author.id) %}
           {% if medals %}
             {% if medals.today %}
@@ -265,7 +265,7 @@
         title.textContent = usernames.length + (usernames.length === 1 ? ' user' : ' users');
         const list = document.createElement('div');
         list.className = 'reaction-users-list';
-        list.textContent = usernames.join(', ');
+        list.textContent = usernames.map(window.bfhDisplayUsername).join(', ');
         userTooltip.appendChild(title);
         userTooltip.appendChild(list);
         const rect = button.getBoundingClientRect();

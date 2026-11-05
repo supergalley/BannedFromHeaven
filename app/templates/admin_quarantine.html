@@ -40,7 +40,7 @@
         </td>
         <td>
           {% if q.moderator %}
-            {{ q.moderator.username }}
+            {{ (q.moderator.username)|display_username }}
             {% set medals = user_medals.get(q.moderator.id) %}
             {% if medals %}
               {% if medals.today %}

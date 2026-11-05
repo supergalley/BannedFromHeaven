@@ -41,7 +41,7 @@
       </span>
     </div>
     <div class="small text-muted">
-      by <strong>{{ s.suggested_by_username }}</strong>
+      by <strong>{{ (s.suggested_by_username)|display_username }}</strong>
       · {{ s.created_at.strftime('%Y-%m-%d %H:%M') if s.created_at else '?' }} UTC
     </div>
   </div>

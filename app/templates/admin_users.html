@@ -6,13 +6,13 @@
 <table class="table table-dark table-sm">
   <thead>
     <tr>
-      <th>ID</th>
-      <th>Username</th>
-      <th>Email</th>
-      <th>Admin</th>
-      <th>Mod</th>
-      <th>Needs review</th>
-      <th>Ban until</th>
+      {% for key, label in [('id', 'ID'), ('username', 'Username'), ('email', 'Email'), ('admin', 'Admin'), ('mod', 'Mod'), ('needs_review', 'Needs review'), ('ban_until', 'Ban until')] %}
+      <th scope="col"{% if sort == key %} aria-sort="{{ 'ascending' if direction == 'asc' else 'descending' }}"{% endif %}>
+        <a class="text-light" href="{{ url_for('admin.users', sort=key, direction='desc' if sort == key and direction == 'asc' else 'asc') }}">
+          {{ label }}{% if sort == key %} <span aria-hidden="true">{{ '▲' if direction == 'asc' else '▼' }}</span>{% endif %}
+        </a>
+      </th>
+      {% endfor %}
       <th>Actions</th>
     </tr>
   </thead>
@@ -22,7 +22,7 @@
     <tr>
       <td>{{ u.id }}</td>
       <td>
-        {{ u.username }}
+        <a href="{{ url_for('main.user_profile', username=u.username) }}">{{ (u.username)|display_username }}</a>
         {% set medals = user_medals.get(u.id) %}
         {% if medals %}
           {% if medals.today %}

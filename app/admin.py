@@ -296,8 +296,28 @@ def clear_notifications():
 @admin_bp.route("/users")
 @admin_required
 def users():
-    users = User.query.order_by(User.username.asc()).all()
-    return render_template("admin_users.html", users=users)
+    sort_columns = {
+        "id": User.id,
+        "username": func.lower(User.username),
+        "email": func.lower(User.email),
+        "admin": User.is_admin,
+        "mod": User.is_moderator,
+        "needs_review": User.needs_moderator,
+        "ban_until": User.ban_until,
+    }
+    sort = request.args.get("sort", "username")
+    if sort not in sort_columns:
+        sort = "username"
+    direction = request.args.get("direction", "asc")
+    if direction not in {"asc", "desc"}:
+        direction = "asc"
+    column = sort_columns[sort]
+    ordering = column.desc() if direction == "desc" else column.asc()
+    # Keep accounts without a ban date at the end in either direction.
+    if sort == "ban_until":
+        ordering = ordering.nullslast()
+    users = User.query.order_by(ordering, func.lower(User.username).asc(), User.id.asc()).all()
+    return render_template("admin_users.html", users=users, sort=sort, direction=direction)
 
 
 @admin_bp.route("/users/<int:user_id>/edit", methods=["GET", "POST"])

@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+    {% include "user_display_script.html" %}
     {# ---- SEO defaults ---- #}
     {% if canonical_url %}
       <link rel="canonical" href="{{ canonical_url }}">
@@ -637,7 +638,7 @@
           <div class="user-menu-wrap">
             <button type="button" class="bfh-nav-btn user-menu-btn" id="user-menu-toggle">
               <div class="d-flex flex-column lh-1 text-start">
-                <span class="small">{{ current_user.username }}</span>
+                <span class="small">{{ (current_user.username)|display_username }}</span>
                 <span>☰</span>
               </div>
             </button>

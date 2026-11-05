@@ -195,7 +195,7 @@
         {% endif %}
         {% if joke.salute_to %}
           <div class="small mt-1" style="color:#ffb3e6;">
-            🫡 <b><i>Salute to {{ joke.salute_to }}</i></b>
+            🫡 <b><i>Salute to {{ (joke.salute_to)|display_username }}</i></b>
           </div>
         {% endif %}
         {% if joke.category %}
@@ -238,7 +238,7 @@
         {% endif %}
         <small style="color:#bfbfbf; font-size:0.85rem;">
           <a href="{{ url_for('main.user_profile', username=joke.author.username) }}">
-            {{ joke.author.username }}
+            {{ (joke.author.username)|display_username }}
           </a>
 
           {% set medals = user_medals.get(joke.author.id) %}

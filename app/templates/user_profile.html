@@ -3,7 +3,7 @@
 
 {% block content %}
 <h2>
-  {{ profile_user.username }}
+  {{ (profile_user.username)|display_username }}
   {% set medals = user_medals.get(profile_user.id) %}
   {% if medals %}
     {% if medals.today %}
@@ -45,12 +45,30 @@
     {% endif %}
   </div>
   <div class="col-md-9">
+    <ul class="list-unstyled small">
+      <li><strong>Joined:</strong>
+        {% if profile_user.created_at %}
+          <time datetime="{{ profile_user.created_at.strftime('%Y-%m-%d') }}">{{ profile_user.created_at.strftime('%d %B %Y') }}</time>
+        {% else %}
+          Unknown
+        {% endif %}
+      </li>
+      <li><strong>Last Activity:</strong>
+        {% if profile_user.last_activity_at %}
+          <time datetime="{{ profile_user.last_activity_at.isoformat() }}Z" title="UTC">{{ profile_user.last_activity_at.strftime('%H:%M %d-%m-%y') }}</time>
+        {% else %}
+          Unknown
+        {% endif %}
+      </li>
+      <li><strong>Reputation:</strong> {{ profile_user.reputation }}</li>
+      <li><strong>Public posts:</strong> {{ public_post_count }}</li>
+      <li><strong>Public comments:</strong> {{ public_comment_count }}</li>
+    </ul>
     {% if profile_user.profile %}
       {% if profile_user.profile.about_me %}
         <p style="white-space:pre-wrap;">{{ profile_user.profile.about_me }}</p>
       {% endif %}
 
-#
       <ul class="list-unstyled small">
         {% if profile_user.profile.show_location and profile_user.profile.location %}
           <li><strong>Location:</strong> {{ profile_user.profile.location }}</li>
@@ -105,7 +123,7 @@
               <br><strong>Reason:</strong> {{ profile_user.needs_mod_reason }}
             {% endif %}
             {% if profile_user.needs_mod_by %}
-              <br><span class="text-muted">Placed on review by <strong>{{ profile_user.needs_mod_by.username }}</strong>{% if profile_user.needs_mod_at %} on {{ profile_user.needs_mod_at.strftime('%d-%m-%Y %H:%M') }} UTC{% endif %}</span>
+              <br><span class="text-muted">Placed on review by <strong>{{ (profile_user.needs_mod_by.username)|display_username }}</strong>{% if profile_user.needs_mod_at %} on {{ profile_user.needs_mod_at.strftime('%d-%m-%Y %H:%M') }} UTC{% endif %}</span>
             {% endif %}
           </div>
         {% endif %}
@@ -115,7 +133,7 @@
 </div>
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
   <h3 class="mb-0">
-    Posts by {{ profile_user.username }}
+    Posts by {{ (profile_user.username)|display_username }}
     {% set medals = user_medals.get(profile_user.id) %}
     {% if medals %}
       {% if medals.today %}

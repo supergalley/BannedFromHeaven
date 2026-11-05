@@ -286,6 +286,8 @@ def create_app():
                         "PRAGMA table_info(users)"
                     ).fetchall()
                 }
+                if ucols and "last_activity_at" not in ucols:
+                    conn.exec_driver_sql("ALTER TABLE users ADD COLUMN last_activity_at DATETIME")
                 if ucols and "duplicate_appeals_banned" not in ucols:
                     conn.exec_driver_sql(
                         "ALTER TABLE users ADD COLUMN duplicate_appeals_banned "
@@ -553,6 +555,26 @@ def create_app():
             except Exception:
                 has_unseen = False
         return dict(has_unseen_followed_comments=has_unseen)
+
+    from .user_display import register_user_display
+    register_user_display(app)
+
+    @app.before_request
+    def record_user_activity():
+        if not request.endpoint or request.endpoint == "static" or not current_user.is_authenticated:
+            return
+        now = datetime.utcnow()
+        minute = now.replace(second=0, microsecond=0)
+        if current_user.last_activity_at and current_user.last_activity_at >= minute:
+            return
+        # Conditional update keeps concurrent requests from moving activity backwards.
+        from .models import User
+        from sqlalchemy import or_
+        User.query.filter(
+            User.id == current_user.id,
+            or_(User.last_activity_at.is_(None), User.last_activity_at < minute),
+        ).update({User.last_activity_at: now}, synchronize_session="fetch")
+        db.session.commit()
 
     # Ban logic
     @app.before_request

@@ -67,7 +67,7 @@
           {{ e.created_at.strftime('%Y-%m-%d %H:%M') if e.created_at else '?' }}
         </span>
         <label class="dupe-log-body" for="log-{{ e.id }}">
-          <strong>{{ e.actor_username }}</strong>
+          <strong>{{ (e.actor_username)|display_username }}</strong>
           checked
           {% if e.joke_a_id %}
             <a href="{{ url_for('main.joke_detail', joke_id=e.joke_a_id) }}">Joke {{ e.joke_a_id }}</a>

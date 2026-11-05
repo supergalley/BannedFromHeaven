@@ -43,7 +43,7 @@
             Joke #{{ joke.id }}
           </a>
           {% if joke.author %}
-            · {{ joke.author.username }}
+            · {{ (joke.author.username)|display_username }}
           {% endif %}
           {% if joke.created_at %}
             · {{ joke.created_at.strftime('%d-%m-%Y %H%M') }}

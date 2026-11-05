@@ -9,7 +9,7 @@
 <div class="mb-3 small text-muted">
   Appellant:
   {% if appellant %}
-    <a href="{{ url_for('main.user_profile', username=appellant.username) }}">{{ appellant.username }}</a>
+    <a href="{{ url_for('main.user_profile', username=appellant.username) }}">{{ (appellant.username)|display_username }}</a>
     (id {{ appellant.id }})
     {% if appellant.duplicate_appeals_banned %}
       <span class="badge bg-danger">appeals blocked</span>
@@ -43,7 +43,7 @@
             Score at removal: <strong>{{ archived.score }}</strong>
             · votes archived: {{ archived.votes|length if archived.votes is defined else '?' }}
             · comments: {{ archived.comments|length if archived.comments is defined else '?' }}
-            · author: {{ archived.author_username or archived.user_id }}
+            · author: {{ (archived.author_username or archived.user_id)|display_username }}
             · {{ archived.created_at.strftime('%Y-%m-%d') if archived.created_at else '' }}
           </div>
         {% else %}
@@ -68,7 +68,7 @@
             <pre class="small bg-black p-2" style="white-space:pre-wrap; max-height:320px; overflow:auto;">{{ kept.body }}</pre>
           {% endif %}
           <div class="small text-muted">
-            by {{ kept.author.username if kept.author else '?' }}
+            by {{ (kept.author.username if kept.author else '?')|display_username }}
             · score {{ kept.score }}
             · <a href="{{ url_for('main.joke_detail', joke_id=kept.id) }}">open live</a>
           </div>

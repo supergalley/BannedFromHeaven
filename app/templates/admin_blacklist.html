@@ -56,7 +56,7 @@
       <td class="small">{{ e.reason or '—' }}</td>
       <td class="small">
         {% if e.source_username %}
-          {{ e.source_username }}
+          {{ (e.source_username)|display_username }}
           {% if e.source_user_id %}(id {{ e.source_user_id }}){% endif %}
         {% else %}
           —

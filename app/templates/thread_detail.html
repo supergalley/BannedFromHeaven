@@ -5,7 +5,7 @@
 <div class="joke-card mt-3">
   <h3>{{ thread.title }}</h3>
   <small style="color:#bfbfbf; font-size:0.85rem;">
-    {{ thread.author.username }}
+    {{ (thread.author.username)|display_username }}
 
     {% set medals = user_medals.get(thread.author.id) %}
     {% if medals %}
@@ -51,7 +51,7 @@
       {% if r.quoted_reply %}
         <div class="quoted-comment-box">
           <div class="small text-muted mb-1">
-            Quoted {{ r.quoted_reply.author.username }}:
+            Quoted {{ (r.quoted_reply.author.username)|display_username }}:
           </div>
           <div style="white-space:pre-wrap;">
             {{ r.quoted_reply.body }}
@@ -62,7 +62,7 @@
           {{ r.body }}
         </div>
       <small style="color:#bfbfbf; font-size:0.8rem;">
-        {{ r.author.username }}
+        {{ (r.author.username)|display_username }}
         {% set medals = user_medals.get(r.author.id) %}
         {% if medals %}
           {% if medals.today %}

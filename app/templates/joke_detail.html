@@ -98,7 +98,7 @@
     <small style="color:#bfbfbf; font-size:0.85rem;">
       {% if joke.author and joke.author.username %}
         <a href="{{ url_for('main.user_profile', username=joke.author.username) }}">
-          {{ joke.author.username }}
+          {{ (joke.author.username)|display_username }}
         </a>
       {% else %}
         <span class="muted">Unknown user</span>
@@ -132,7 +132,7 @@
     </small>
     {% if joke.salute_to %}
       <div class="small mt-1" style="color:#ffb3e6;">
-        🫡 <b><i>Salute to {{ joke.salute_to }}</i></b>
+        🫡 <b><i>Salute to {{ (joke.salute_to)|display_username }}</i></b>
       </div>
     {% endif %}
     {% if joke.is_meme and joke.image_filename %}
@@ -168,7 +168,7 @@
 <div class="joke-card" id="comment-{{ c.id }}">
     {% if c.quoted_comment %}
       <div class="quoted-comment-box">
-        <div class="small text-muted mb-1">Quoted {{ c.quoted_comment.author.username }}:</div>
+        <div class="small text-muted mb-1">Quoted {{ (c.quoted_comment.author.username)|display_username }}:</div>
         <div style="white-space:pre-wrap;">
           {% if c.quoted_comment.author.is_admin or c.quoted_comment.author.is_moderator %}
             {{ c.quoted_comment.body|safe }}
@@ -186,7 +186,7 @@
       {% endif %}
     </p>
     <small style="color:#bfbfbf; font-size:0.8rem;">
-      {{ c.author.username }}
+      {{ (c.author.username)|display_username }}
       {# add any medals/profile bits you want, similar to forum replies #}
       · {{ c.created_at.strftime('%d-%m-%Y %H%M') }}
     </small>
@@ -356,7 +356,7 @@
         title.textContent = usernames.length + (usernames.length === 1 ? ' user' : ' users');
         const list = document.createElement('div');
         list.className = 'reaction-users-list';
-        list.textContent = usernames.join(', ');
+        list.textContent = usernames.map(window.bfhDisplayUsername).join(', ');
         userTooltip.appendChild(title);
         userTooltip.appendChild(list);
         const rect = button.getBoundingClientRect();

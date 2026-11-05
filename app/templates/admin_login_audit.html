@@ -23,11 +23,11 @@
           <td style="white-space:nowrap;">{{ a.created_at }}</td>
           <td>
           {% if a.user %}
-            #{{ a.user_id }} ({{ a.user.username }})
+            #{{ a.user_id }} ({{ (a.user.username)|display_username }})
           {% elif a.user_id %}
-            #{{ a.user_id }} ({{ a.username_or_email }})
+            #{{ a.user_id }} ({{ (a.username_or_email)|display_username }})
           {% else %}
-            {{ a.username_or_email }}
+            {{ (a.username_or_email)|display_username }}
           {% endif %}
           </td>
           <td>

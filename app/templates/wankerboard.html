@@ -41,7 +41,7 @@
       {% for row in rep_leaderboard %}
         <tr>
           <td>{{ loop.index }}</td>
-          <td>{{ row.username }}</td>
+          <td>{{ (row.username)|display_username }}</td>
           <td>{{ row.rep_delta }}</td>
         </tr>
       {% endfor %}
@@ -65,7 +65,7 @@
       {% for row in upvote_leaderboard %}
         <tr>
           <td>{{ loop.index }}</td>
-          <td>{{ row.username }}</td>
+          <td>{{ (row.username)|display_username }}</td>
           <td>{{ row.upvote_count }}</td>
         </tr>
       {% endfor %}
@@ -90,7 +90,7 @@
       {% for row in downvote_leaderboard %}
         <tr>
           <td>{{ loop.index }}</td>
-          <td>{{ row.username }}</td>
+          <td>{{ (row.username)|display_username }}</td>
           <td>{{ row.downvote_count }}</td>
           <td>{{ row.upvote_count }}</td>
         </tr>

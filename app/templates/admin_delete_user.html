@@ -6,7 +6,7 @@
 
 <div class="alert alert-danger">
   <strong>This permanently deletes</strong>
-  <code>{{ user.username }}</code> (id {{ user.id }}) and
+  <code>{{ (user.username)|display_username }}</code> (id {{ user.id }}) and
   <strong>all</strong> their jokes, memes, clips, comments, votes, messages, forum posts, etc.
   A full dump is written to <code>banning.log</code>.
 </div>
@@ -15,7 +15,7 @@
   <div class="card-body">
     <h5 class="card-title">Account</h5>
     <ul class="mb-0">
-      <li><strong>Username:</strong> {{ user.username }}</li>
+      <li><strong>Username:</strong> {{ (user.username)|display_username }}</li>
       <li><strong>Email:</strong> {{ user.email }}</li>
       <li><strong>Created:</strong> {{ user.created_at }}</li>
       <li><strong>Reputation:</strong> {{ user.reputation }}</li>
@@ -99,7 +99,7 @@
         <input class="form-check-input" type="checkbox" name="bl_username" id="bl_username" value="1" checked>
         <label class="form-check-label" for="bl_username">
           Add username to blacklist
-          <span class="text-muted">— <code>{{ user.username }}</code> (case-insensitive)</span>
+          <span class="text-muted">— <code>{{ (user.username)|display_username }}</code> (case-insensitive)</span>
         </label>
       </div>
       <div class="mb-0">

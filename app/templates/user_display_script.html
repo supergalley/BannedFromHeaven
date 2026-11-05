@@ -1,0 +1,10 @@
+<script>
+// Decorate visible labels only; forms and links retain the original username.
+window.bfhDisplayUsername = (() => {
+  const newMembers = new Set({{ new_member_names|tojson }});
+  return username => {
+    const name = String(username || '');
+    return name + (newMembers.has(name) ? ' ✨' : '');
+  };
+})();
+</script>

@@ -1,0 +1,27 @@
+{% macro queue_post(joke, label='') %}
+<article class="border border-secondary rounded p-3 mb-3">
+  {% if label %}<h3 class="h6 text-info">{{ label }}</h3>{% endif %}
+  {% if joke %}
+    <div class="small text-muted mb-2">
+      #{{ joke.id }} · {% if joke.author %}<a href="{{ url_for('main.user_profile', username=joke.author.username) }}">{{ joke.author.username|display_username }}</a>{% else %}Unknown author{% endif %}
+      · {{ joke.created_at.strftime('%H:%M %d-%m-%y') if joke.created_at else '' }} UTC
+      {% if joke.category %} · {{ joke.category.name }}{% endif %}
+      · <a href="{{ url_for('main.joke_detail', joke_id=joke.id) }}" target="_blank" rel="noopener">Open post</a>
+    </div>
+    {% if joke.title %}<h4 class="h6">{{ joke.title }}</h4>{% endif %}
+    {% if joke.body %}
+      <div class="mb-3" style="white-space: pre-wrap; overflow-wrap: anywhere;">{% if joke.author and (joke.author.is_admin or joke.author.is_moderator) %}{{ joke.body|safe }}{% else %}{{ joke.body }}{% endif %}</div>
+    {% endif %}
+    {% if joke.is_meme and joke.image_filename %}
+      <img src="{{ UPLOADS_URL }}/{{ joke.image_filename|urlencode }}" alt="Submitted meme" class="img-fluid rounded mb-2" loading="lazy">
+    {% endif %}
+    {% if joke.is_clip and joke.video_filename %}
+      <video controls preload="none" class="w-100 rounded mb-2" {% if joke.video_thumb %}poster="{{ THUMBS_URL }}/{{ joke.video_thumb|urlencode }}"{% endif %}>
+        <source src="{{ CLIPS_URL }}/{{ joke.video_filename|urlencode }}" type="video/mp4">
+      </video>
+    {% endif %}
+  {% else %}
+    <p class="text-warning mb-0">This post is no longer available. Mark this pair as Not Duplicate to clear it from the queue.</p>
+  {% endif %}
+</article>
+{% endmacro %}

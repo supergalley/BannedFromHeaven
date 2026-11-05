@@ -27,7 +27,7 @@
             </td>
             <td>
               {% if j.author %}
-                {{ j.author.username }}
+                {{ (j.author.username)|display_username }}
               {% else %}
                 <span class="text-muted">[deleted user]</span>
               {% endif %}

@@ -3,9 +3,9 @@
 
 {% block content %}
 <h2>
-  Edit user: {{ user.username }}
+  Edit user: {{ (user.username)|display_username }}
 <h2>
-  Edit user: {{ user.username }}
+  Edit user: {{ (user.username)|display_username }}
   {% set medals = user_medals.get(user.id) %}
   {% if medals %}
     {% if medals.today %}

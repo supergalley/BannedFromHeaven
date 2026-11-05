@@ -1,0 +1,54 @@
+{% from 'moderation_queue_post.html' import queue_post with context %}
+{% if queue_kind == 'review' %}
+<section id="review-queue" data-queue="review" data-item-id="{{ review_item.id if review_item else '' }}" class="card bg-dark text-light border-secondary h-100">
+  <div class="card-header queue-heading {% if pending_review_count %}moderator-review-glow{% endif %}">
+    <h2 class="h5 mb-0">Review Queue <span class="badge bg-secondary">{{ review_total }}</span></h2>
+  </div>
+  <div class="card-body">
+    {% if review_item %}
+      {{ queue_post(review_item) }}
+      <div class="d-flex flex-wrap align-items-start gap-2">
+        <form method="post" action="{{ url_for('main.moderation_approve', joke_id=review_item.id) }}" data-mod-queue-action>
+          <button type="submit" class="btn btn-success">Approve</button>
+        </form>
+        <form method="post" action="{{ url_for('main.moderation_reject', joke_id=review_item.id) }}" class="d-flex flex-wrap gap-2" data-mod-queue-action>
+          <label class="visually-hidden" for="queue-reject-reason">Rejection reason</label>
+          <select id="queue-reject-reason" name="reasons" class="form-select form-select-sm w-auto" required>
+            <option value="">Rejection reason…</option>
+            {% for reason in rejection_reasons %}<option value="{{ reason }}">{{ reason }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="btn btn-danger">Reject</button>
+        </form>
+      </div>
+    {% else %}
+      <p class="text-muted mb-0">No submissions waiting for review.</p>
+    {% endif %}
+  </div>
+</section>
+{% else %}
+<section id="duplicates-queue" data-queue="duplicates" data-item-id="{{ dupe_pair.id if dupe_pair else '' }}" class="card bg-dark text-light border-secondary h-100">
+  <div class="card-header queue-heading {% if pending_dupe_count %}moderator-review-glow{% endif %}">
+    <h2 class="h5 mb-2">Duplicates <span class="badge bg-secondary">{{ dupe_total }}</span></h2>
+    <span class="badge bg-danger {% if pending_dupe_high_count %}moderator-review-glow{% endif %}">High probability: {{ dupe_high_total }}</span>
+    <span class="badge bg-warning text-dark {% if pending_dupe_medium_count %}moderator-review-glow{% endif %}">Medium probability: {{ dupe_medium_total }}</span>
+  </div>
+  <div class="card-body">
+    {% if dupe_pair %}
+      <p class="small text-muted">Pair #{{ dupe_pair.id }} · {{ 'High' if dupe_pair.score >= 0.90 else 'Medium' }} probability · {{ '%.0f'|format(dupe_pair.score * 100) }}% match</p>
+      {{ queue_post(dupe_newer, 'Newer post') }}
+      {{ queue_post(dupe_older, 'Original post') }}
+      <div class="d-flex flex-wrap gap-2">
+        <form method="post" action="{{ url_for('main.moderation_duplicates_action', pair_id=dupe_pair.id, action='not_dupe') }}" data-mod-queue-action>
+          <button type="submit" class="btn btn-success">Not Duplicate</button>
+        </form>
+        <form method="post" action="{{ url_for('main.moderation_duplicates_action', pair_id=dupe_pair.id, action='delete_newer') }}" data-mod-queue-action data-confirm="Archive the newer post as a duplicate and keep the original?">
+          <button type="submit" class="btn btn-danger" {% if not dupe_newer or not dupe_older %}disabled{% endif %}>Duplicate 🚮</button>
+        </form>
+      </div>
+    {% else %}
+      <p class="text-muted">No pending duplicates at or above 75% probability.</p>
+    {% endif %}
+    <a class="small d-inline-block mt-3" href="{{ url_for('main.moderation_duplicates', view='log') }}">Moderation log</a>
+  </div>
+</section>
+{% endif %}

@@ -1,138 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Duplicates Review – Moderators – BannedFromHeaven.com{% endblock %}
+{% block title %}Duplicate Moderation Log – BannedFromHeaven.com{% endblock %}
 {% block content %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 mb-3">
-  <h1 class="h3 mb-0">Duplicates Review</h1>
-  <div class="d-flex flex-wrap gap-2">
-    <a class="btn btn-sm btn-outline-light" href="{{ url_for('main.moderation_review') }}">Review Queue</a>
-    <a class="btn btn-sm btn-outline-info" href="{{ url_for('main.moderation_categories') }}">Categories</a>
-    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.moderators_room') }}">💬 Mod Room</a>
-  </div>
-</div>
-
-<p class="text-muted small">
-  Near-duplicate jokes and memes suggested by the X4 vision and text scanners (multimodal + global embeddings).
-  Archive the <strong>newer</strong> post when it is a re-post; if the newer one is
-  clearly better (or they are not really duplicates), mark as not a duplicate.
-  Deleted jokes (and their votes/comments) are archived, not hard-wiped.
-</p>
-
-<form method="get" class="mb-3 d-flex flex-wrap align-items-center gap-3">
-  <span class="small text-muted">Queue confidence:</span>
-  <div class="form-check form-check-inline m-0">
-    <input class="form-check-input" type="radio" name="conf" id="conf-high" value="high"
-           {% if conf != 'medium' %}checked{% endif %}
-           onchange="this.form.submit()">
-    <label class="form-check-label" for="conf-high">
-      High probability
-      <span class="text-muted">(≥90% · {{ count_high if count_high is defined else '?' }})</span>
-    </label>
-  </div>
-  <div class="form-check form-check-inline m-0">
-    <input class="form-check-input" type="radio" name="conf" id="conf-medium" value="medium"
-           {% if conf == 'medium' %}checked{% endif %}
-           onchange="this.form.submit()">
-    <label class="form-check-label" for="conf-medium">
-      Medium probability
-      <span class="text-muted">(≥75% · includes high · {{ count_medium if count_medium is defined else '?' }})</span>
-    </label>
-  </div>
-</form>
-
-{% if not pairs %}
-  <div class="alert alert-secondary">
-    No pending pairs in this band.
-    {% if conf != 'medium' %}
-      Try <a href="{{ url_for('main.moderation_duplicates', conf='medium') }}">Medium probability</a>
-      if you have more time.
-    {% else %}
-      🎉
-    {% endif %}
-  </div>
-{% endif %}
-
-{% for p in pairs %}
-  {% set older = jokes.get(p.joke_older_id) %}
-  {% set newer = jokes.get(p.joke_newer_id) %}
-  <div class="card bg-dark text-light mb-4 border-secondary">
-    <div class="card-header d-flex flex-wrap justify-content-between gap-2">
-      <span>
-        Pair #{{ p.id }}
-        · score <strong>{{ '%.0f'|format((p.score or 0) * 100) }}%</strong>
-        · {{ p.method or 'fuzzy' }}
-        {% if p.detail %}<span class="text-muted">· {{ p.detail }}</span>{% endif %}
-      </span>
-      <span class="text-muted small">flagged {{ p.created_at.strftime('%Y-%m-%d %H:%M') if p.created_at else '' }} UTC</span>
-    </div>
-    <div class="card-body">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <h2 class="h6 text-warning">Older #{{ p.joke_older_id }}</h2>
-          {% if older %}
-            <div class="small text-muted mb-1">
-              by
-              <a href="{{ url_for('main.user_profile', username=older.author.username) if older.author else '#' }}">
-                {{ older.author.username if older.author else '?' }}
-              </a>
-              · score {{ older.score }}
-              · {{ older.created_at.strftime('%Y-%m-%d') if older.created_at else '' }}
-              · <a href="{{ url_for('main.joke_detail', joke_id=older.id) }}">open</a>
-            </div>
-            {% if older.body %}
-              <pre class="bg-black text-light p-2 small" style="white-space:pre-wrap; max-height:220px; overflow:auto;">{{ older.body }}</pre>
-            {% endif %}
-            {% if older.is_meme and older.image_filename %}
-              <img src="{{ UPLOADS_URL }}/{{ older.image_filename }}" alt="" style="max-width:100%; max-height:180px;">
-            {% endif %}
-          {% else %}
-            <p class="text-danger small">Joke #{{ p.joke_older_id }} no longer exists.</p>
-          {% endif %}
-        </div>
-        <div class="col-md-6">
-          <h2 class="h6 text-info">Newer #{{ p.joke_newer_id }}</h2>
-          {% if newer %}
-            <div class="small text-muted mb-1">
-              by
-              <a href="{{ url_for('main.user_profile', username=newer.author.username) if newer.author else '#' }}">
-                {{ newer.author.username if newer.author else '?' }}
-              </a>
-              · score {{ newer.score }}
-              · {{ newer.created_at.strftime('%Y-%m-%d') if newer.created_at else '' }}
-              · <a href="{{ url_for('main.joke_detail', joke_id=newer.id) }}">open</a>
-            </div>
-            {% if newer.body %}
-              <pre class="bg-black text-light p-2 small" style="white-space:pre-wrap; max-height:220px; overflow:auto;">{{ newer.body }}</pre>
-            {% endif %}
-            {% if newer.is_meme and newer.image_filename %}
-              <img src="{{ UPLOADS_URL }}/{{ newer.image_filename }}" alt="" style="max-width:100%; max-height:180px;">
-            {% endif %}
-          {% else %}
-            <p class="text-danger small">Joke #{{ p.joke_newer_id }} no longer exists.</p>
-          {% endif %}
-        </div>
-      </div>
-
-      <div class="d-flex flex-wrap align-items-center gap-2 mt-3 w-100">
-        <form method="post" class="m-0"
-              action="{{ url_for('main.moderation_duplicates_action', pair_id=p.id, action='delete_newer', conf=conf) }}"
-              onsubmit="return confirm('Archive NEWER #{{ p.joke_newer_id }} as a duplicate?');">
-          <input type="hidden" name="conf" value="{{ conf }}">
-          <button type="submit" class="btn btn-danger btn-lg fw-bold">
-            <b>Archive newer (keep older)</b>
-          </button>
-        </form>
-        <form method="post" class="m-0"
-              action="{{ url_for('main.moderation_duplicates_action', pair_id=p.id, action='not_dupe', conf=conf) }}">
-          <input type="hidden" name="conf" value="{{ conf }}">
-          <button type="submit" class="btn btn-outline-success btn-lg fw-bold">
-            <b>Not a duplicate / Newer joke much better</b>
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
-{% endfor %}
-
+<a class="btn btn-sm btn-outline-light mt-3" href="{{ url_for('main.moderators_room') }}#duplicates-queue">Back to Mod Room</a>
 {# --- De-duplication action log (bottom of page) --- #}
 <style>
   .dupe-log-panel {
@@ -203,7 +72,7 @@
             {{ e.created_at.strftime('%Y-%m-%d %H:%M') if e.created_at else '?' }}
           </span>
           <div class="dupe-log-body">
-            <strong>{{ e.actor_username }}</strong>
+            <strong>{{ (e.actor_username)|display_username }}</strong>
             checked
             {% if e.joke_a_id %}
               <a href="{{ url_for('main.joke_detail', joke_id=e.joke_a_id) }}">Joke {{ e.joke_a_id }}</a>

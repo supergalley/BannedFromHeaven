@@ -83,7 +83,7 @@
                     {% else %}Joke{% endif %}
                     · #{{ joke.id }}
                     {% if joke.author %}
-                      · {{ joke.author.username }}
+                      · {{ (joke.author.username)|display_username }}
                     {% endif %}
                     {% if item.followed_at %}
                       · followed {{ item.followed_at.strftime('%d-%m-%Y') }}

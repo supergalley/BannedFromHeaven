@@ -49,3 +49,4 @@ app/static/**/*.jpg
 app/static/**/*.jpeg
 app/static/**/*.ico
 app/static/**/*.webp
+app/message_images/

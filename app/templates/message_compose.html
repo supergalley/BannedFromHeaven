@@ -3,7 +3,7 @@
 
 {% block content %}
 <h2>
-  Send message to {{ recipient.username }}
+  Send message to {{ (recipient.username)|display_username }}
   {% set medals = user_medals.get(recipient.id) %}
   {% if medals %}
     {% if medals.today %}
@@ -29,15 +29,16 @@
     {% endif %}
   {% endif %}
 </h2>
-<form method="post">
+<form method="post" enctype="multipart/form-data">
   <div class="mb-3">
     <label class="form-label">Subject</label>
     <input type="text" name="subject" class="form-control">
   </div>
   <div class="mb-3">
     <label class="form-label">Message</label>
-    <textarea name="body" class="form-control" rows="5" required></textarea>
+    <textarea name="body" class="form-control" rows="5">{{ request.form.get('body', '') }}</textarea>
   </div>
+  {% include "message_image_input.html" %}
   <button class="btn btn-primary" type="submit">Send</button>
 </form>
 {% endblock %}

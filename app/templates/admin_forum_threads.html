@@ -17,10 +17,10 @@
       <td>{{ t.title }}</td>
       <td>
         {% if t.author %}
-          {{ t.author.username }}
+          {{ (t.author.username)|display_username }}
       <td>
         {% if t.author %}
-          {{ t.author.username }}
+          {{ (t.author.username)|display_username }}
           {% set medals = user_medals.get(t.author.id) %}
           {% if medals %}
             {% if medals.today %}

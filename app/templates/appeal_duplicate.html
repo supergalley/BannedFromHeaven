@@ -70,7 +70,7 @@
             <pre class="small bg-black p-2" style="white-space:pre-wrap;">{{ kept.body }}</pre>
           {% endif %}
           <div class="small text-muted">
-            by {{ kept.author.username if kept.author else '?' }}
+            by {{ (kept.author.username if kept.author else '?')|display_username }}
             · score {{ kept.score }}
             · <a href="{{ url_for('main.joke_detail', joke_id=kept.id) }}">view live</a>
           </div>

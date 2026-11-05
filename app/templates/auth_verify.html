@@ -16,7 +16,7 @@
 
     {% if username %}
       <p class="text-muted mb-3">
-        Signing up as <strong>{{ username }}</strong>
+        Signing up as <strong>{{ (username)|display_username }}</strong>
         {% if email %}(<strong>{{ email }}</strong>){% endif %}.
         Enter the 6-digit code from the email, or use the link in that message.
       </p>
