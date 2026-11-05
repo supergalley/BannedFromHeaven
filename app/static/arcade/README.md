@@ -12,8 +12,9 @@ canvas artwork; `play.js` supplies keyboard/touch controls, pausing, input recor
 and score saving. The matching server rules live in `app/arcade/rules.py`.
 These arcade files and the matching replay rules are covered by the MIT license
 in this directory. The license does not relicense unrelated website code.
-The user-supplied `app/static/Embryo.png` is separate from the original MIT-licensed
-canvas artwork; the arcade code licence does not grant rights to that image.
+The user-supplied `app/static/Embryo.png` and `app/static/Spaceship.png` assets are
+separate from the original MIT-licensed canvas artwork; the arcade code licence
+does not grant rights to those images.
 Artwork and UI cache updates use `ASSET_VERSION` in `app/games.py`, independently
 of the gameplay rules version and existing leaderboards.
 

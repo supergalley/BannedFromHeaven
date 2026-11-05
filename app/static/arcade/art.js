@@ -4,6 +4,8 @@
   const W=480,H=640;
   const embryoSprite=new Image();
   embryoSprite.src='/static/Embryo.png';
+  const shipSprite=new Image();
+  shipSprite.src='/static/Spaceship.png';
   const serpentMotion=new WeakMap();
   const veinLayer=document.createElement('canvas');veinLayer.width=W;veinLayer.height=H;
   const veinCtx=veinLayer.getContext('2d');
@@ -91,9 +93,15 @@
     s.bombs.forEach(b=>{ctx.fillStyle='#ff6e99';ctx.shadowColor='#ff5588';ctx.shadowBlur=10;ctx.beginPath();ctx.ellipse(b.x/100,b.y/100,5,8,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;});
     const x=s.x/100,y=574;
     if(s.frame>=s.invulnerable_until||Math.floor(s.frame/4)%2===0){
-      ctx.fillStyle='#a18ce9';ctx.beginPath();ctx.moveTo(x,y-17);ctx.lineTo(x+24,y+13);ctx.lineTo(x+9,y+8);ctx.lineTo(x-9,y+8);ctx.lineTo(x-24,y+13);ctx.closePath();ctx.fill();
-      ctx.fillStyle='#e3d8ff';round(ctx,x-7,y-13,14,22,4);ctx.fill();ctx.fillStyle='#99f6d3';ctx.beginPath();ctx.ellipse(x,y-18,5,3,0,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='#a2ffe7';ctx.globalAlpha=.5+.3*Math.sin(s.frame);ctx.beginPath();ctx.moveTo(x-5,y+9);ctx.lineTo(x,y+24+Math.sin(s.frame)*4);ctx.lineTo(x+5,y+9);ctx.fill();ctx.globalAlpha=1;
+      if(shipSprite.complete&&shipSprite.naturalWidth){
+        const scale=48/Math.max(shipSprite.naturalWidth,shipSprite.naturalHeight);
+        const width=shipSprite.naturalWidth*scale,height=shipSprite.naturalHeight*scale;
+        ctx.drawImage(shipSprite,x-width/2,y-height/2,width,height);
+      }else{
+        ctx.fillStyle='#a18ce9';ctx.beginPath();ctx.moveTo(x,y-17);ctx.lineTo(x+24,y+13);ctx.lineTo(x+9,y+8);ctx.lineTo(x-9,y+8);ctx.lineTo(x-24,y+13);ctx.closePath();ctx.fill();
+        ctx.fillStyle='#e3d8ff';round(ctx,x-7,y-13,14,22,4);ctx.fill();ctx.fillStyle='#99f6d3';ctx.beginPath();ctx.ellipse(x,y-18,5,3,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#a2ffe7';ctx.globalAlpha=.5+.3*Math.sin(s.frame);ctx.beginPath();ctx.moveTo(x-5,y+9);ctx.lineTo(x,y+24+Math.sin(s.frame)*4);ctx.lineTo(x+5,y+9);ctx.fill();ctx.globalAlpha=1;
+      }
     }
     ctx.strokeStyle='#3b365d';ctx.beginPath();ctx.moveTo(0,610);ctx.lineTo(W,610);ctx.stroke();
   }
