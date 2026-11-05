@@ -614,6 +614,10 @@ def delete_user(user_id):
             synchronize_session=False,
         )
 
+        from .models import ArcadeBestScore, ArcadeRun
+        ArcadeBestScore.query.filter_by(user_id=uid).delete(synchronize_session=False)
+        ArcadeRun.query.filter_by(user_id=uid).delete(synchronize_session=False)
+
         # Bulk-delete the user row (no ORM relationship nulling)
         User.query.filter_by(id=uid).delete(synchronize_session=False)
         db.session.commit()

@@ -1,0 +1,17 @@
+{% if leaders %}
+<ol class="arcade-ranking list-unstyled mb-0">
+  {% for row in leaders %}
+    <li class="arcade-rank-row {% if row.user_id == current_user.id %}is-you{% endif %}">
+      <span class="arcade-rank-number">{{ '%02d'|format(loop.index) }}</span>
+      <a class="arcade-rank-player" href="{{ url_for('main.user_profile', username=row.player.username) }}">{{ row.player.username|display_username }}{% if row.user_id == current_user.id %}<span class="small text-muted ms-1">you</span>{% endif %}</a>
+      <strong class="arcade-rank-score" title="Best set {{ row.achieved_at.strftime('%H:%M %d-%m-%y') }} UTC">{{ '{:,}'.format(row.score) }}</strong>
+    </li>
+  {% endfor %}
+</ol>
+{% else %}
+<div class="arcade-empty-board">
+  <span aria-hidden="true">♛</span>
+  <p>No scores yet.</p>
+  <small>The first positive score takes the throne.</small>
+</div>
+{% endif %}

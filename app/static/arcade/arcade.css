@@ -1,0 +1,76 @@
+/* SPDX-License-Identifier: MIT */
+.arcade-page { --arcade-muted:#aaa8bb; --arcade-border:#383344; color:#f1eef7; max-width:1180px; margin-left:auto; margin-right:auto; }
+.arcade-hero { display:flex; justify-content:space-between; align-items:center; gap:1.5rem; padding:1rem 0 1.5rem; }
+.arcade-eyebrow { font-size:.66rem; font-weight:700; letter-spacing:.15em; color:#bab1ca; }
+.arcade-hero h1 { font-size:clamp(1.8rem,4vw,3rem); font-weight:800; letter-spacing:-.045em; margin:.4rem 0; }
+.arcade-hero p { color:var(--arcade-muted); font-size:.95rem; margin:0; }
+.arcade-hero-tag { font-size:.59rem; letter-spacing:.09em; white-space:nowrap; color:#b5aabc; border:1px solid var(--arcade-border); border-radius:999px; padding:.65rem .9rem; }
+.arcade-live-dot { display:inline-block; width:6px; height:6px; margin-right:6px; background:#bfef8f; border-radius:50%; box-shadow:0 0 10px #bfef8f66; }
+.arcade-picker { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.8rem; margin-bottom:1.2rem; }
+.arcade-game-card { position:relative; display:flex; align-items:center; gap:.8rem; min-height:110px; padding:.85rem 1rem; border:1px solid var(--arcade-border); border-radius:14px; background:linear-gradient(125deg,#221c2b,#17151e); color:#eeeaf4; text-align:left; transition:border-color .15s,transform .15s; }
+.arcade-game-card:hover { border-color:var(--game-accent); transform:translateY(-2px); }
+.arcade-game-card.is-selected { border-color:var(--game-accent); box-shadow:inset 0 -2px var(--game-accent); background:linear-gradient(125deg,#302331,#1b1823); }
+.arcade-game-card:focus-visible,.arcade-canvas:focus-visible { outline:2px solid #e8dcff; outline-offset:4px; }
+.arcade-card-art { width:75px; height:65px; flex-shrink:0; }
+.arcade-card-copy { display:flex; flex-direction:column; gap:.25rem; min-width:0; }
+.arcade-card-copy strong { font-size:1rem; letter-spacing:-.02em; }
+.arcade-card-copy small { font-size:.72rem; color:#aaa2b5; }
+.arcade-card-best { color:#a59baa; font-size:.57rem; letter-spacing:.1em; margin-top:.3rem; }
+.arcade-card-best b { color:var(--game-accent); font-size:.8rem; margin-left:6px; letter-spacing:0; }
+.arcade-layout { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(270px,.8fr); gap:1.2rem; align-items:start; }
+.arcade-panel { border:1px solid var(--arcade-border); border-radius:15px; background:#17141f; overflow:hidden; }
+.arcade-player-heading { display:flex; justify-content:space-between; align-items:center; padding:1rem 1.1rem .65rem; gap:1rem; }
+.arcade-player-heading h2 { font-size:1.2rem; font-weight:750; margin:.2rem 0 0; letter-spacing:-.02em; }
+.arcade-score-label { display:flex; flex-direction:column; align-items:end; color:#a99eb5; font-size:.58rem; letter-spacing:.13em; }
+.arcade-score-label strong { color:var(--game-accent); font-size:1.65rem; line-height:1.1; font-variant-numeric:tabular-nums; letter-spacing:-.03em; }
+.arcade-game-meta { display:flex; justify-content:space-between; color:#c0b3c9; font-size:.68rem; margin:0 1.1rem .7rem; font-variant-numeric:tabular-nums; }
+.arcade-stage { position:relative; width:min(100%,480px,calc(75svh - 127px)); aspect-ratio:3/4; margin:0 auto; background:#0b0a13; border:1px solid #3d3048; border-radius:9px; overflow:hidden; }
+#arcade-canvas { display:block; width:100%; height:100%; outline:none; touch-action:none; }
+#arcade-canvas:focus-visible { outline:2px solid #b59bdf; outline-offset:-3px; }
+.arcade-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:1rem; background:#09061178; backdrop-filter:blur(3px); }
+.arcade-overlay[hidden] { display:none; }
+.arcade-overlay-card { width:100%; max-width:290px; padding:1.5rem 1.2rem; text-align:center; background:#181020e8; border:1px solid #685071; border-radius:15px; box-shadow:0 20px 50px #0007; }
+.arcade-overlay-eyebrow { color:var(--game-accent); font-size:.59rem; letter-spacing:.15em; margin-bottom:.65rem; font-weight:700; }
+.arcade-overlay-card h3 { font-size:1.65rem; font-weight:800; letter-spacing:-.04em; }
+.arcade-overlay-card p { color:#c2b4cb; font-size:.8rem; line-height:1.6; margin:.8rem 0 1.2rem; }
+.arcade-play-button { display:block; width:100%; background:var(--game-accent); border:1px solid transparent; color:#1b1221; font-weight:800; padding:.65rem 1rem; border-radius:8px; }
+.arcade-play-button:hover,.arcade-play-button:focus { background:#f4eaff; color:#19111e; }
+.arcade-play-button span { float:right; }
+.arcade-touch-controls { display:flex; flex-wrap:wrap; justify-content:center; gap:.5rem; padding:.8rem 1rem .2rem; max-width:500px; margin:auto; }
+.arcade-control { min-width:65px; flex:1; border:1px solid #5c4b6a; border-bottom-width:3px; border-radius:9px; background:#292034; color:#eee5f5; min-height:45px; font-weight:750; touch-action:none; user-select:none; -webkit-user-select:none; }
+.arcade-control.is-held,.arcade-control:active { border-color:var(--game-accent); background:#43304d; transform:translateY(1px); }
+.arcade-control.control-fire { flex:1.6; color:#b9f7da; }
+.arcade-control.control-flap { color:#ffaca2; }
+.arcade-player-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; padding:.65rem 1rem; }
+.arcade-player-toolbar .btn { font-size:.7rem; border-color:#514659; padding:.2rem .5rem; }
+.arcade-player-toolbar [role=status] { font-size:.68rem !important; flex:1; min-width:130px; }
+.arcade-help { margin:0; color:#a99ab7; font-size:.73rem; line-height:1.6; padding:0 1rem 1rem; }
+.arcade-sidebar { display:grid; gap:1rem; }
+.arcade-personal { padding:1.15rem 1.2rem; background:linear-gradient(120deg,#302335,#19141f); }
+.arcade-personal-line { display:flex; align-items:baseline; justify-content:space-between; gap:.6rem; margin-top:.3rem; }
+.arcade-personal-line strong { font-size:2.4rem; letter-spacing:-.06em; font-variant-numeric:tabular-nums; }
+.arcade-personal-line span { color:#b5a2c6; font-size:.75rem; }
+.arcade-leaderboard { padding:1.15rem; }
+.arcade-board-heading { display:flex; justify-content:space-between; align-items:center; gap:.5rem; }
+.arcade-board-heading h2 { font-size:1.3rem; font-weight:750; margin:.3rem 0; }
+.arcade-board-heading .btn { border-color:#514659; }
+.arcade-board-subtitle { color:#aaa0b5; font-size:.72rem; margin:.2rem 0 1rem; }
+.arcade-rank-row { display:flex; align-items:center; gap:.65rem; padding:.85rem .3rem; border-top:1px solid #302938; }
+.arcade-rank-row.is-you { background:#34274466; border-radius:5px; }
+.arcade-rank-number { color:#a498ad; font-size:.7rem; font-variant-numeric:tabular-nums; min-width:18px; }
+.arcade-rank-row:first-child .arcade-rank-number { color:#f2cb84; }
+.arcade-rank-player { color:#e0d5eb; font-size:.84rem; text-decoration:none; flex:1; min-width:0; overflow-wrap:anywhere; }
+.arcade-rank-player:hover { color:#fff; text-decoration:underline; }
+.arcade-rank-score { font-variant-numeric:tabular-nums; font-size:.9rem; color:#fff; }
+.arcade-empty-board { text-align:center; padding:1.5rem .2rem 2rem; color:#a49aad; }
+.arcade-empty-board>span { display:block; font-size:2.5rem; color:#d9b6e5; margin-bottom:.6rem; }
+.arcade-empty-board p { margin-bottom:.3rem; font-size:.9rem; color:#dacde4; }
+.arcade-empty-board small { font-size:.74rem; }
+.arcade-small-print { padding:.4rem .4rem 0; color:#a396ae; font-size:.74rem; line-height:1.7; }
+.arcade-small-print strong { color:#d7c7e4; }
+.arcade-small-print p { margin:.45rem 0; }
+.arcade-footer { border-top:1px solid var(--arcade-border); margin-top:1.5rem; padding-top:1rem; color:#96899f; font-size:.68rem; }
+.arcade-footer a { color:#cbb7dd; }
+@media(max-width:991px){.arcade-hero-tag{display:none}.arcade-game-card{padding:.65rem;gap:.3rem}.arcade-card-art{width:55px;height:55px}.arcade-card-copy strong{font-size:.86rem}.arcade-card-copy small{font-size:.65rem}}
+@media(max-width:767px){.arcade-hero{padding:.5rem 0 1rem}.arcade-hero h1{font-size:1.8rem}.arcade-hero p{font-size:.8rem}.arcade-layout{grid-template-columns:1fr}.arcade-picker{gap:.45rem}.arcade-game-card{flex-direction:column;align-items:start;min-height:0;padding:.55rem}.arcade-card-art{width:45px;height:38px}.arcade-card-copy{gap:.15rem}.arcade-card-copy strong{font-size:.72rem}.arcade-card-copy small{display:none}.arcade-card-best{font-size:.48rem}.arcade-card-best b{margin-left:2px}.arcade-player-heading{padding:.8rem 1rem .6rem}.arcade-player-heading h2{font-size:1rem}.arcade-control{min-height:46px;min-width:50px}.arcade-personal-line strong{font-size:2rem}.arcade-sidebar{grid-template-columns:1fr}.arcade-stage{width:min(100%,480px,calc(75svh - 127px))}}
+@media(prefers-reduced-motion:reduce){.arcade-game-card{transition:none}.arcade-game-card:hover{transform:none}}

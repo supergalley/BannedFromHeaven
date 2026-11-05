@@ -29,6 +29,13 @@ Flask Core Web App       Media Delivery  Resumable      jokesdb.bannedfromheaven
                                     (ffmpeg, Pillow, /hooks/tusd)
 ```
 
+The logged-in **Games** page (`/games`) contains Flappy Devil, Spunk Invaders, and
+Hell Serpent, with separate personal bests and top-ten leaderboards. `ArcadeRun`
+records server-seeded rounds; `ArcadeBestScore` stores one best per player, game,
+and rules version. See [the arcade source and scoring notes](app/static/arcade/README.md).
+The original game engines and canvas artwork are MIT-licensed; this does not change
+the license of unrelated website code.
+
 ---
 
 ## 2. Docker & Network Architecture
@@ -82,6 +89,8 @@ The stack runs via Docker Compose (`docker-compose.yaml`) across two external Do
     ├── auth.py                  # Auth Blueprint: login, registration, email verify holding pen, Cloudflare Turnstile
     ├── admin.py                 # Admin Blueprint: dashboard, user management, banning, category editor, settings
     ├── forum.py                 # Forum Blueprint: threads, nested quotes, emoji reactions, read states
+    ├── games.py                 # Logged-in arcade, server-seeded rounds, replay-verified personal bests
+    ├── arcade/rules.py          # Deterministic game simulation mirrored by static/arcade/core.js
     ├── duplicates.py            # De-duplication logic, soft-archiving, restore, appeals, audit logging
     ├── similarity.py            # Fast fuzzy matching (SequenceMatcher) & remote embedding lookup
     ├── mbed_index.py            # Pure-Python binary `.mbed` vector index parser & similarity search

@@ -607,6 +607,7 @@
         <a class="bfh-nav-btn" href="{{ url_for('main.search') }}" x-content-detected="none">🔍👀</a>
         <a class="bfh-nav-btn {% if forum_has_unread %}glow-green{% endif %}" href="{{ url_for('forum.index') }}" x-content-detected="none">Forum 📰</a>
         <a class="bfh-nav-btn bfh-nav-row2" href="{{ url_for('main.wankerboard') }}">SinnerBoard©</a>
+        <a class="bfh-nav-btn bfh-nav-row2" href="{{ url_for('games.index') }}">🎮 Games</a>
         {% if current_user.is_authenticated and current_user.is_admin %}
           <a class="bfh-nav-btn bfh-nav-row2 {% if admin_unread_notifications %}admin-link-highlight{% endif %}"
             href="{{ url_for('admin.dashboard') }}"

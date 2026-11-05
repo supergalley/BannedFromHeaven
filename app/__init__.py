@@ -507,11 +507,13 @@ def create_app():
     from .auth import auth_bp
     from .forum import forum_bp
     from .admin import admin_bp
+    from .games import games_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(forum_bp, url_prefix="/forum")
     app.register_blueprint(admin_bp)
+    app.register_blueprint(games_bp)
 
     @app.context_processor
     def inject_forum_unread_flag():

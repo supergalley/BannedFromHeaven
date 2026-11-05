@@ -1105,6 +1105,7 @@
            aria-label="Forum{% if forum_has_unread %} (unread){% endif %}"
            x-content-detected="none"><span class="bfh-nav-icon">📰</span></a>
         <a class="bfh-nav-btn bfh-nav-row2" href="{{ url_for('main.wankerboard') }}">SinnerBoard©</a>
+        <a class="bfh-nav-btn bfh-nav-row2" href="{{ url_for('games.index') }}">🎮 Games</a>
         {% if current_user.is_authenticated and current_user.is_admin %}
           <a class="bfh-nav-btn bfh-nav-row2 bfh-nav-icon-btn {% if admin_unread_notifications %}admin-link-highlight{% endif %}"
             href="{{ url_for('admin.dashboard') }}"

@@ -179,6 +179,9 @@ class User(UserMixin, db.Model):
         "UserWarning", foreign_keys="UserWarning.user_id", backref="user", lazy=True, cascade="all, delete-orphan"
     )
 
+    arcade_runs = db.relationship("ArcadeRun", cascade="all, delete-orphan", backref="player")
+    arcade_scores = db.relationship("ArcadeBestScore", cascade="all, delete-orphan", backref="player")
+
     def is_banned(self) -> bool:
         return self.ban_until is not None and self.ban_until > datetime.utcnow()
 
@@ -1125,3 +1128,36 @@ class ModerationAcknowledgement(db.Model):
     kind = db.Column(db.String(20), primary_key=True)
     finding_id = db.Column(db.Integer, primary_key=True)
     acknowledged_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ArcadeRun(db.Model):
+    """A server-seeded round, consumed once after replay verification or abandonment."""
+    __tablename__ = "arcade_runs"
+    __table_args__ = (db.Index("ix_arcade_run_player_started", "user_id", "started_at"),)
+    id = db.Column(db.String(48), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    game_slug = db.Column(db.String(40), nullable=False)
+    rules_version = db.Column(db.Integer, nullable=False, default=1)
+    seed = db.Column(db.BigInteger, nullable=False)
+    started_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    consumed_at = db.Column(db.DateTime, nullable=True)
+    verified_score = db.Column(db.Integer, nullable=True)
+    frames = db.Column(db.Integer, nullable=True)
+    trace_hash = db.Column(db.String(64), nullable=True)
+    was_personal_best = db.Column(db.Boolean, nullable=False, default=False)
+
+
+class ArcadeBestScore(db.Model):
+    __tablename__ = "arcade_best_scores"
+    __table_args__ = (
+        UniqueConstraint("user_id", "game_slug", "rules_version", name="uq_arcade_player_game_version"),
+        db.CheckConstraint("score >= 0", name="arcade_score_nonnegative"),
+        db.Index("ix_arcade_leaderboard", "game_slug", "rules_version", "score", "achieved_at"),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    game_slug = db.Column(db.String(40), nullable=False)
+    rules_version = db.Column(db.Integer, nullable=False, default=1)
+    score = db.Column(db.Integer, nullable=False)
+    achieved_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    run_id = db.Column(db.String(48), nullable=False)

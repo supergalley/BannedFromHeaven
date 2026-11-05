@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Games – BannedFromHeaven.com{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='arcade/arcade.css') }}?v={{ rules_version }}">
+<div class="arcade-page mt-3 mb-5">
+  <header class="arcade-hero">
+    <div>
+      <div class="arcade-eyebrow">BANNED FROM HEAVEN · ARCADE</div>
+      <h1>Games for the damned.</h1>
+      <p>Pick a game. Beat your best. Take the top spot.</p>
+    </div>
+    <div class="arcade-hero-tag"><span class="arcade-live-dot"></span> THREE GAMES. ENDLESS GRUDGES.</div>
+  </header>
+  <div class="arcade-picker" role="group" aria-label="Choose a game">
+    {% for slug, game in games.items() %}
+      <button type="button" class="arcade-game-card {% if slug == selected %}is-selected{% endif %}" data-game="{{ slug }}" aria-pressed="{{ 'true' if slug == selected else 'false' }}" style="--game-accent: {{ game.accent }};">
+        <canvas width="100" height="80" class="arcade-card-art" data-preview="{{ slug }}" aria-hidden="true"></canvas>
+        <span class="arcade-card-copy"><strong>{{ game.name }}</strong><small>{{ game.genre }}</small><span class="arcade-card-best">YOUR BEST <b data-best="{{ slug }}">{{ personal_bests.get(slug, 0) }}</b></span></span>
+      </button>
+    {% endfor %}
+  </div>
+  <div class="arcade-layout">
+    <section id="arcade-player" class="arcade-panel" style="--game-accent: {{ games[selected].accent }};" aria-label="Game player">
+      <div class="arcade-player-heading">
+        <div><span class="arcade-eyebrow">NOW PLAYING</span><h2 id="arcade-game-title">{{ games[selected].name }}</h2></div>
+        <div class="arcade-score-label">SCORE<strong id="arcade-score">0</strong></div>
+      </div>
+      <div class="arcade-game-meta"><span id="arcade-extra">Ready when you are</span><span id="arcade-time">5:00</span></div>
+      <div class="arcade-stage">
+        <canvas id="arcade-canvas" width="480" height="640" tabindex="0" aria-label="{{ games[selected].name }} game area"></canvas>
+        <div id="arcade-overlay" class="arcade-overlay">
+          <div class="arcade-overlay-card">
+            <div class="arcade-overlay-eyebrow" id="arcade-overlay-label">YOUR NEXT BAD HABIT</div>
+            <h3 id="arcade-overlay-title">{{ games[selected].name }}</h3>
+            <p id="arcade-overlay-copy">{{ games[selected].description }}</p>
+            <button type="button" id="arcade-start" class="btn arcade-play-button">Play now <span aria-hidden="true">↗</span></button>
+            <button type="button" id="arcade-retry-save" class="btn btn-sm btn-outline-light mt-2" hidden>Retry saving score</button>
+          </div>
+        </div>
+      </div>
+      <div id="arcade-touch-controls" class="arcade-touch-controls" aria-label="Touch controls"></div>
+      <div class="arcade-player-toolbar">
+        <button type="button" id="arcade-pause" class="btn btn-sm btn-outline-light" disabled>Pause</button>
+        <button type="button" id="arcade-restart" class="btn btn-sm btn-outline-light" disabled>Restart</button>
+        <span id="arcade-save-status" class="small text-muted" role="status" aria-live="polite">Your best score saves at game over.</span>
+      </div>
+      <p id="arcade-controls-help" class="arcade-help">{{ games[selected].controls }}</p>
+    </section>
+    <aside class="arcade-sidebar">
+      <section class="arcade-panel arcade-personal">
+        <span class="arcade-eyebrow">YOUR PERSONAL BEST</span>
+        <div class="arcade-personal-line"><strong id="arcade-personal-best">{{ board.personal_best }}</strong><span id="arcade-personal-rank">{{ '#' ~ board.rank ~ ' overall' if board.rank else 'Your throne awaits' }}</span></div>
+      </section>
+      <section class="arcade-panel arcade-leaderboard">
+        <div class="arcade-board-heading"><div><span class="arcade-eyebrow">THE HALL OF INFAMY</span><h2>Top 10</h2></div><button type="button" id="arcade-refresh-board" class="btn btn-sm btn-outline-light" aria-label="Refresh leaderboard">↻</button></div>
+        <p class="arcade-board-subtitle">One best score per player, for this game.</p>
+        <div id="arcade-leaderboard">{{ board.leaderboard_html|safe }}</div>
+        <p id="arcade-board-status" class="small text-muted mt-2 mb-0" role="status"></p>
+      </section>
+      <div class="arcade-small-print"><strong>Quick rounds. Lasting rivalries.</strong><p>Rounds last up to five minutes of play and expire 30 minutes after starting. Pause and resume within that window. Scores save automatically when a round ends.</p><p>Keyboard and touch controls supported.</p></div>
+    </aside>
+  </div>
+  <footer class="arcade-footer">Original open-source arcade games · <a href="{{ url_for('static', filename='arcade/LICENSE') }}">MIT licence</a> · <a href="https://github.com/supergalley/BannedFromHeaven/tree/main/app/static/arcade" target="_blank" rel="noopener">Source code</a></footer>
+</div>
+<script type="application/json" id="arcade-config">{{ {'games': games, 'selected': selected, 'csrf': csrf, 'fps': fps, 'maxFrames': max_frames, 'rulesVersion': rules_version, 'root': url_for('games.index'), 'bests': personal_bests}|tojson }}</script>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='arcade/core.js') }}?v={{ rules_version }}" defer></script>
+<script src="{{ url_for('static', filename='arcade/art.js') }}?v={{ rules_version }}" defer></script>
+<script src="{{ url_for('static', filename='arcade/play.js') }}?v={{ rules_version }}" defer></script>
+{% endblock %}
