@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Games – BannedFromHeaven.com{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='arcade/arcade.css') }}?v={{ rules_version }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='arcade/arcade.css') }}?v={{ asset_version }}">
 <div class="arcade-page mt-3 mb-5">
   <header class="arcade-hero">
     <div>
@@ -66,7 +66,7 @@
 {% endblock %}
 {% block scripts %}
 {{ super() }}
-<script src="{{ url_for('static', filename='arcade/core.js') }}?v={{ rules_version }}" defer></script>
-<script src="{{ url_for('static', filename='arcade/art.js') }}?v={{ rules_version }}" defer></script>
-<script src="{{ url_for('static', filename='arcade/play.js') }}?v={{ rules_version }}" defer></script>
+<script src="{{ url_for('static', filename='arcade/core.js') }}?v={{ asset_version }}" defer></script>
+<script src="{{ url_for('static', filename='arcade/art.js') }}?v={{ asset_version }}" defer></script>
+<script src="{{ url_for('static', filename='arcade/play.js') }}?v={{ asset_version }}" defer></script>
 {% endblock %}

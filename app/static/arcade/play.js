@@ -66,7 +66,9 @@
   }
   function configureControls(){
     touchControls.replaceChildren();
-    const definitions=game==='flappy-devil'?[[1,'FLAP','control-flap']]:game==='spunk-invaders'?[[1,'←',''],[4,'FIRE','control-fire'],[2,'→','']]:[[8,'←',''],[1,'↑',''],[4,'↓',''],[2,'→','']];
+    touchControls.classList.toggle('arcade-dpad',game==='hell-serpent');
+    player.classList.toggle('has-dpad',game==='hell-serpent');
+    const definitions=game==='flappy-devil'?[[1,'FLAP','control-flap']]:game==='spunk-invaders'?[[1,'←',''],[4,'FIRE','control-fire'],[2,'→','']]:[[1,'↑','control-up'],[8,'←','control-left'],[2,'→','control-right'],[4,'↓','control-down']];
     definitions.forEach(([mask,label,className])=>{
       const button=document.createElement('button');button.type='button';button.className='arcade-control '+className;button.textContent=label;
       button.setAttribute('aria-label',label==='←'?'Move left':label==='→'?'Move right':label==='↑'?'Move up':label==='↓'?'Move down':label);
@@ -178,7 +180,7 @@
       updateHud();
     }else accumulator=0;
     const display=phase==='idle'?{...state,frame:Math.floor(time/1000*30),...(game==='flappy-devil'?{y:31500+Math.round(Math.sin(time/700)*1400)}:{})}:state;
-    art.draw(ctx,display,dpr);requestAnimationFrame(animate);
+    art.draw(ctx,display,dpr,phase==='playing'?accumulator/(1000/core.FPS):0);requestAnimationFrame(animate);
   }
   document.addEventListener('keydown',event=>{
     if(!event.target.closest?.('#arcade-player'))return;
@@ -224,7 +226,7 @@
     const c=node.getContext('2d'),slug=node.dataset.preview;
     if(slug==='flappy-devil')art.devil(c,53,41,0,0,1.55);
     else if(slug==='spunk-invaders'){art.egg(c,69,28,0,0);art.tadpole(c,29,51,0,0);}
-    else{c.strokeStyle='#a6dc80';c.lineWidth=13;c.lineCap='round';c.lineJoin='round';c.beginPath();c.moveTo(20,56);c.lineTo(50,56);c.lineTo(50,31);c.lineTo(77,31);c.stroke();c.fillStyle='#d2ffae';c.beginPath();c.arc(78,31,9,0,Math.PI*2);c.fill();c.fillStyle='#20382c';c.fillRect(79,26,3,3);c.fillRect(79,33,3,3);}
+    else art.serpent(c,[{x:17,y:57},{x:33,y:57},{x:49,y:51},{x:49,y:31},{x:63,y:29},{x:78,y:29}],1);
   });
   selectGame(game,true);resize();requestAnimationFrame(animate);
 })();

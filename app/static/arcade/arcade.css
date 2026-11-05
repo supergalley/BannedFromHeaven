@@ -74,3 +74,11 @@
 @media(max-width:991px){.arcade-hero-tag{display:none}.arcade-game-card{padding:.65rem;gap:.3rem}.arcade-card-art{width:55px;height:55px}.arcade-card-copy strong{font-size:.86rem}.arcade-card-copy small{font-size:.65rem}}
 @media(max-width:767px){.arcade-hero{padding:.5rem 0 1rem}.arcade-hero h1{font-size:1.8rem}.arcade-hero p{font-size:.8rem}.arcade-layout{grid-template-columns:1fr}.arcade-picker{gap:.45rem}.arcade-game-card{flex-direction:column;align-items:start;min-height:0;padding:.55rem}.arcade-card-art{width:45px;height:38px}.arcade-card-copy{gap:.15rem}.arcade-card-copy strong{font-size:.72rem}.arcade-card-copy small{display:none}.arcade-card-best{font-size:.48rem}.arcade-card-best b{margin-left:2px}.arcade-player-heading{padding:.8rem 1rem .6rem}.arcade-player-heading h2{font-size:1rem}.arcade-control{min-height:46px;min-width:50px}.arcade-personal-line strong{font-size:2rem}.arcade-sidebar{grid-template-columns:1fr}.arcade-stage{width:min(100%,480px,calc(75svh - 127px))}}
 @media(prefers-reduced-motion:reduce){.arcade-game-card{transition:none}.arcade-game-card:hover{transform:none}}
+
+.arcade-touch-controls.arcade-dpad { display:grid; grid-template-columns:repeat(3,60px); grid-template-rows:repeat(3,44px); gap:.35rem; justify-content:center; }
+.arcade-dpad .arcade-control { min-width:0; min-height:0; font-size:1.15rem; }
+.arcade-dpad .control-up { grid-column:2; grid-row:1; }
+.arcade-dpad .control-left { grid-column:1; grid-row:2; }
+.arcade-dpad .control-right { grid-column:3; grid-row:2; }
+.arcade-dpad .control-down { grid-column:2; grid-row:3; }
+.has-dpad .arcade-stage { width:min(100%,480px,calc(75svh - 195px)); }

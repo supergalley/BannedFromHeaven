@@ -4,7 +4,7 @@ Three original, self-hosted arcade games with original canvas artwork:
 
 - **Flappy Devil:** flap through the gates; one point per gate.
 - **Spunk Invaders:** swimming tadpole projectiles turn egg invaders into fading
-  cartoon embryos. Ten points per egg, plus 25 per wave.
+  embryos rendered from `/static/Embryo.png`. Ten points per egg, plus 25 per wave.
 - **Hell Serpent:** steer around a 24×28 garden and collect souls; ten points each.
 
 `core.js` holds deterministic integer-only rules. `art.js` contains the original
@@ -12,6 +12,10 @@ canvas artwork; `play.js` supplies keyboard/touch controls, pausing, input recor
 and score saving. The matching server rules live in `app/arcade/rules.py`.
 These arcade files and the matching replay rules are covered by the MIT license
 in this directory. The license does not relicense unrelated website code.
+The user-supplied `app/static/Embryo.png` is separate from the original MIT-licensed
+canvas artwork; the arcade code licence does not grant rights to that image.
+Artwork and UI cache updates use `ASSET_VERSION` in `app/games.py`, independently
+of the gameplay rules version and existing leaderboards.
 
 ## Scores
 

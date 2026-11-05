@@ -50,3 +50,6 @@ app/static/**/*.jpeg
 app/static/**/*.ico
 app/static/**/*.webp
 app/message_images/
+
+# Required arcade artwork supplied for Spunk Invaders
+!app/static/Embryo.png

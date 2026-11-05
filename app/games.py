@@ -14,6 +14,8 @@ from .arcade.rules import FPS, MAX_FRAMES, RULES_VERSION, ReplayError, replay_sc
 from .models import ArcadeRun, ArcadeBestScore, User
 
 
+ASSET_VERSION = 2
+
 games_bp = Blueprint("games", __name__, url_prefix="/games")
 GAMES = {
     "flappy-devil": dict(name="Flappy Devil", genre="Flap. Dodge. Repeat.",
@@ -80,7 +82,7 @@ def index():
     response = make_response(render_template(
         "games.html", games=GAMES, selected=selected,
         personal_bests=bests, board=_board(selected), csrf=session["arcade_csrf"],
-        fps=FPS, max_frames=MAX_FRAMES, rules_version=RULES_VERSION))
+        fps=FPS, max_frames=MAX_FRAMES, rules_version=RULES_VERSION, asset_version=ASSET_VERSION))
     response.headers["Cache-Control"] = "private, no-store"
     return response
 
