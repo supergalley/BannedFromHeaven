@@ -258,8 +258,19 @@ def moderation_notification_queries():
         ids = db.session.query(ModerationAcknowledgement.finding_id).filter_by(kind=kind)
         return model.query.filter(~model.id.in_(ids))
 
-    return (unseen(Joke, "review").filter_by(review_status="pending"),
-            unseen(JokeDupePair, "duplicate").filter_by(status="pending").filter(JokeDupePair.score >= 0.75))
+    return (unseen(Joke, "review").filter_by(review_status="pending", is_quarantined=False),
+            pending_duplicate_queue().filter(~JokeDupePair.id.in_(
+                db.session.query(ModerationAcknowledgement.finding_id).filter_by(kind="duplicate"))))
+
+
+def pending_duplicate_queue():
+    from .models import JokeDupePair
+    quarantined = db.session.query(Joke.id).filter(Joke.is_quarantined.is_(True))
+    return JokeDupePair.query.filter(
+        JokeDupePair.status == "pending", JokeDupePair.score >= 0.75,
+        ~JokeDupePair.joke_older_id.in_(quarantined),
+        ~JokeDupePair.joke_newer_id.in_(quarantined),
+    )
 
 
 @main_bp.app_context_processor
@@ -1511,6 +1522,9 @@ def joke_detail(joke_id):
                 else:
                     break
         abort(410)
+
+    from .quarantine import require_quarantine_access
+    require_quarantine_access(joke)
 
     if joke.review_status != "approved":
         if not current_user.is_authenticated or not (
@@ -3987,12 +4001,12 @@ def moderation_queue_context(kind):
 
     unseen_reviews, unseen_duplicates = moderation_notification_queries()
     if kind == "review":
-        pending = Joke.query.filter_by(review_status="pending")
+        pending = Joke.query.filter_by(review_status="pending", is_quarantined=False)
         order = (Joke.created_at.asc(), Joke.id.asc())
         item = unseen_reviews.order_by(*order).first() or pending.order_by(*order).first()
         return dict(queue_kind=kind, review_item=item, review_total=pending.count(),
                     rejection_reasons=MODERATION_REJECTION_REASONS)
-    pending = JokeDupePair.query.filter_by(status="pending").filter(JokeDupePair.score >= 0.75)
+    pending = pending_duplicate_queue()
     order = (JokeDupePair.score.desc(), JokeDupePair.created_at.asc(), JokeDupePair.id.asc())
     pair = unseen_duplicates.order_by(*order).first() or pending.order_by(*order).first()
     return dict(queue_kind=kind, dupe_pair=pair, dupe_total=pending.count(),
@@ -4385,6 +4399,27 @@ def toggle_joke_author_review(joke_id):
     db.session.commit()
     return redirect(url_for("main.joke_detail", joke_id=joke.id))
 
+@main_bp.route("/moderation/quarantine")
+@moderator_required
+def moderation_quarantine():
+    from .quarantine import quarantine_review_query
+    from sqlalchemy.orm import joinedload
+    items = quarantine_review_query(current_user).options(
+        joinedload(QuarantinedJoke.joke).joinedload(Joke.author),
+        joinedload(QuarantinedJoke.moderator),
+    ).order_by(QuarantinedJoke.created_at.desc(), QuarantinedJoke.id.desc()).all()
+    return render_template("moderation_quarantine.html", items=items)
+
+
+@main_bp.route("/moderation/quarantine/<int:joke_id>/<action>", methods=["POST"])
+@moderator_required
+def moderation_quarantine_action(joke_id, action):
+    from .quarantine import review_quarantined_joke
+    message = review_quarantined_joke(joke_id, action, current_user)
+    flash(message, "success" if action == "restore" else "warning")
+    return redirect(url_for("main.moderation_quarantine"))
+
+
 @main_bp.route("/moderation/jokes/<int:joke_id>/quarantine", methods=["POST"])
 @moderator_required
 def quarantine_joke(joke_id):
@@ -4398,7 +4433,7 @@ def quarantine_joke(joke_id):
     # Has been restored/locked by an admin? Mods can't quarantine again.
     if joke.quarantine_locked and not current_user.is_admin:
         flash(
-            "This joke has already been reviewed by an admin and can't be quarantined again.",
+            "This joke has already been reviewed and can't be quarantined again by moderators.",
             "info",
         )
         return redirect(url_for("main.joke_detail", joke_id=joke.id))
@@ -4452,7 +4487,7 @@ def quarantine_joke(joke_id):
     db.session.add(note)
     db.session.commit()
     flash(
-        f"Joke quarantined for admin review. Reasons: {reasons_str}",
+        f"Joke quarantined for independent moderator/admin review. Reasons: {reasons_str}",
         "warning",
     )
     return redirect(url_for("main.index"))
@@ -4673,6 +4708,12 @@ def moderation_duplicates_action(pair_id, action):
     if action not in ("delete_newer", "not_dupe"):
         abort(400)
     pair = JokeDupePair.query.get_or_404(pair_id)
+    from .quarantine import require_quarantine_access
+    for joke_id in (pair.joke_older_id, pair.joke_newer_id):
+        joke = db.session.get(Joke, joke_id)
+        if joke and joke.is_quarantined:
+            require_quarantine_access(joke)
+            abort(409, description="Review quarantined posts from the Quarantine page first.")
     # Serialize pending-pair actions so two moderators cannot archive the same post twice.
     claimed = JokeDupePair.query.filter_by(id=pair.id, status="pending").update(
         {JokeDupePair.reviewed_by_id: current_user.id}, synchronize_session="fetch")
@@ -4812,6 +4853,10 @@ def api_internal_dupe_pairs():
 @moderator_required
 def moderation_approve(joke_id):
     joke = db.session.get(Joke, joke_id)
+    if joke and joke.is_quarantined:
+        from .quarantine import require_quarantine_access
+        require_quarantine_access(joke)
+        abort(409, description="Review this post from the Quarantine page first.")
     if not joke or joke.review_status != "pending":
         return moderation_queue_result("That item was already reviewed. Loaded the next submission.", status=409)
     claimed = Joke.query.filter_by(id=joke.id, review_status="pending").update(
@@ -4831,6 +4876,10 @@ def moderation_approve(joke_id):
 @moderator_required
 def moderation_reject(joke_id):
     joke = db.session.get(Joke, joke_id)
+    if joke and joke.is_quarantined:
+        from .quarantine import require_quarantine_access
+        require_quarantine_access(joke)
+        abort(409, description="Review this post from the Quarantine page first.")
     if not joke or joke.review_status != "pending":
         return moderation_queue_result("That item was already reviewed. Loaded the next submission.", status=409)
     allowed = MODERATION_REJECTION_REASONS

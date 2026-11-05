@@ -1148,49 +1148,23 @@ def category_mod_suggestion_reject(sug_id):
 @admin_bp.route("/quarantine")
 @admin_required
 def quarantine_list():
-    items = (
-        QuarantinedJoke.query.join(Joke, QuarantinedJoke.joke_id == Joke.id)
-        .filter(QuarantinedJoke.permanently_deleted == False)
-        .filter(QuarantinedJoke.restored_at.is_(None))
-        .filter(Joke.is_quarantined == True)
-        .order_by(QuarantinedJoke.created_at.desc())
-        .all()
-    )
-    return render_template("admin_quarantine.html", items=items)
+    return redirect(url_for("main.moderation_quarantine"))
 
 
 @admin_bp.route("/quarantine/<int:joke_id>/restore", methods=["POST"])
 @admin_required
 def restore_quarantined_joke(joke_id):
-    q = QuarantinedJoke.query.filter_by(joke_id=joke_id).first_or_404()
-    joke = q.joke
-
-    joke.is_quarantined = False
-    joke.quarantine_locked = True  # mark as "reviewed; mods can't touch"
-    q.restored_at = datetime.utcnow()
-
-    db.session.commit()
-    flash("Joke restored and locked from further moderator quarantine.", "success")
-    return redirect(url_for("admin.quarantine_list"))
+    from .quarantine import review_quarantined_joke
+    flash(review_quarantined_joke(joke_id, "restore", current_user), "success")
+    return redirect(url_for("main.moderation_quarantine"))
 
 
 @admin_bp.route("/quarantine/<int:joke_id>/delete", methods=["POST"])
 @admin_required
 def delete_quarantined_joke(joke_id):
-    q = QuarantinedJoke.query.filter_by(joke_id=joke_id).first_or_404()
-    joke = q.joke
-
-    # Soft delete: keep in DB but never show it again
-    joke.is_quarantined = True
-    joke.quarantine_locked = True
-    q.permanently_deleted = True
-
-    db.session.commit()
-    flash(
-        "Joke marked as deleted. It will no longer appear in quarantine or public lists.",
-        "warning",
-    )
-    return redirect(url_for("admin.quarantine_list"))
+    from .quarantine import review_quarantined_joke
+    flash(review_quarantined_joke(joke_id, "delete", current_user), "warning")
+    return redirect(url_for("main.moderation_quarantine"))
 
 
 # -------- Settings / pinned post (e, k) --------

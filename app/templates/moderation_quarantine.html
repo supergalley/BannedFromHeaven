@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from 'moderation_queue_post.html' import queue_post with context %}
+{% block title %}Quarantine – BannedFromHeaven.com{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 mb-3">
+  <h1 class="h3 mb-0">Quarantine <span class="badge bg-secondary">{{ items|length }}</span></h1>
+  <a class="btn btn-sm btn-outline-light" href="{{ url_for('main.moderators_room') }}">Back to Mod Room</a>
+</div>
+<p class="small text-muted">Review the full post below. Restore returns it to its previous submission status and locks it from further moderator quarantine. Delete keeps it removed from public lists.</p>
+{% if not current_user.is_admin %}
+  <p class="small text-muted">Your own quarantines are reviewed by another moderator or admin and are hidden from this list.</p>
+{% endif %}
+{% for q in items %}
+  <section class="card bg-dark text-light border-warning mb-3" id="quarantine-{{ q.joke_id }}">
+    <div class="card-header">
+      <strong>#{{ q.joke_id }}</strong>
+      · Quarantined by {{ (q.moderator.username if q.moderator else 'Unknown')|display_username }}
+      · {{ q.created_at.strftime('%H:%M %d-%m-%y') if q.created_at else 'Unknown' }} UTC
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        {% for reason in q.reasons_list() %}<span class="badge bg-warning text-dark me-1 mb-1">{{ reason }}</span>{% else %}<span class="text-muted small">No reason recorded.</span>{% endfor %}
+      </div>
+      {{ queue_post(q.joke) }}
+      <div class="d-flex flex-wrap gap-2">
+        {% if current_user.is_admin %}<a class="btn btn-outline-light" href="{{ url_for('admin.edit_joke', joke_id=q.joke_id) }}">Edit</a>{% endif %}
+        <form method="post" action="{{ url_for('main.moderation_quarantine_action', joke_id=q.joke_id, action='restore') }}">
+          <button type="submit" class="btn btn-success" onclick="return confirm('Restore this joke and lock it from further moderator quarantine?');">Restore</button>
+        </form>
+        <form method="post" action="{{ url_for('main.moderation_quarantine_action', joke_id=q.joke_id, action='delete') }}">
+          <button type="submit" class="btn btn-danger" onclick="return confirm('Mark this joke as deleted and keep it removed from public lists?');">Delete</button>
+        </form>
+      </div>
+    </div>
+  </section>
+{% else %}
+  <div class="alert alert-secondary">No quarantined jokes are awaiting your review.</div>
+{% endfor %}
+{% endblock %}
