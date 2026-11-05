@@ -1,7 +1,7 @@
 # app/admin.py
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Blueprint, render_template, redirect, url_for, request, flash, abort
+from flask import Blueprint, render_template, redirect, url_for, request, flash, abort, jsonify
 from flask_login import login_required, current_user
 from . import db
 from sqlalchemy import func, case, or_
@@ -933,11 +933,30 @@ def categories():
 
         return redirect(url_for("admin.categories"))
 
-    categories = (
-        Category.query.order_by(Category.name.asc())
-        .all()
-    )
-    return render_template("admin_categories.html", categories=categories)
+    from .category_editor import category_snapshot
+    return render_template("admin_categories.html", snapshot=category_snapshot())
+
+
+@admin_bp.route("/categories/editor", methods=["GET", "POST"])
+@admin_required
+def category_editor_data():
+    from .category_editor import category_snapshot, apply_category_edits, CategoryEditError
+    from sqlalchemy.exc import IntegrityError
+    from sqlalchemy.orm.exc import StaleDataError
+
+    if request.method == "GET":
+        response = jsonify(snapshot=category_snapshot())
+    else:
+        try:
+            response = jsonify(apply_category_edits(request.get_json(silent=True)))
+        except CategoryEditError as exc:
+            db.session.rollback()
+            return jsonify(error=str(exc)), exc.status
+        except (IntegrityError, StaleDataError):
+            db.session.rollback()
+            return jsonify(error="A category changed or a slug conflicts with another row. Your edits are still here; reload saved data and try again."), 409
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @admin_bp.route("/categories/<int:cat_id>/delete", methods=["POST"])
