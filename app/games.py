@@ -14,7 +14,7 @@ from .arcade.rules import FPS, MAX_FRAMES, RULES_VERSION, ReplayError, replay_sc
 from .models import ArcadeRun, ArcadeBestScore, User
 
 
-ASSET_VERSION = 5
+ASSET_VERSION = 6
 
 games_bp = Blueprint("games", __name__, url_prefix="/games")
 GAMES = {

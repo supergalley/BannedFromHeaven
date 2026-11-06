@@ -57,13 +57,34 @@
     devil(ctx,112,s.y/100,s.frame,Math.max(-.35,Math.min(.8,s.vy/1400)));
     if(!s.started){ctx.textAlign='center';ctx.fillStyle='#d9c3cd';ctx.font='600 14px system-ui';ctx.fillText('SPACE / TAP TO FAP',W/2,415);}
   }
+  // Cache the detailed cell surface once rather than rebuilding it every frame.
+  let eggSprite;
+  function cellSprite(){
+    if(eggSprite)return eggSprite;
+    eggSprite=document.createElement('canvas');eggSprite.width=128;eggSprite.height=128;
+    const c=eggSprite.getContext('2d');c.translate(64,64);
+    c.save();c.beginPath();c.arc(0,0,57,0,Math.PI*2);c.clip();
+    const g=c.createRadialGradient(-20,-23,2,0,0,60);
+    g.addColorStop(0,'#368db0');g.addColorStop(.65,'#145675');g.addColorStop(.9,'#479ebc');g.addColorStop(1,'#b0e9f1');
+    c.fillStyle=g;c.fillRect(-64,-64,128,128);
+    // Deterministic winding membrane ridges, inspired by microscopy of an ovum.
+    let seed=781;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+    c.lineCap='round';
+    for(let i=0;i<460;i++){
+      let x=random()*116-58,y=random()*116-58;
+      c.strokeStyle=i%3===0?'rgba(161,226,242,.65)':'rgba(74,162,194,.6)';c.lineWidth=.6+random()*.8;
+      c.beginPath();c.moveTo(x,y);
+      for(let j=0;j<5;j++){const angle=random()*Math.PI*2;x+=Math.cos(angle)*3.4;y+=Math.sin(angle)*3.4;c.lineTo(x,y);}
+      c.stroke();
+    }
+    c.restore();c.strokeStyle='#9fdbea';c.lineWidth=1.8;c.beginPath();
+    for(let i=0;i<=160;i++){const angle=i/160*Math.PI*2,r=57+Math.sin(angle*29)*.7+Math.sin(angle*47)*.45;const x=Math.cos(angle)*r,y=Math.sin(angle)*r;if(i===0)c.moveTo(x,y);else c.lineTo(x,y);}
+    c.closePath();c.stroke();return eggSprite;
+  }
   function egg(ctx,x,y,frame,index){
     ctx.save();ctx.translate(x,y);ctx.rotate(Math.sin(frame/13+index)*.08);
-    ctx.shadowColor='#e8b1f2';ctx.shadowBlur=8;
-    const g=ctx.createRadialGradient(-6,-8,2,0,0,26);g.addColorStop(0,'#fff8f4');g.addColorStop(.7,'#edcbdc');g.addColorStop(1,'#a681b9');
-    ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(0,0,17,23,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-    ctx.fillStyle='#efaabf';ctx.globalAlpha=.75;ctx.beginPath();ctx.ellipse(1,3,9,12,-.2,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
-    ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(-7,-8,3,6,.3,0,Math.PI);ctx.stroke();ctx.restore();
+    ctx.shadowColor='#64c4e3';ctx.shadowBlur=5;
+    ctx.drawImage(cellSprite(),-23,-23,46,46);ctx.restore();
   }
   function embryo(ctx,e,frame){
     const age=frame-e.at,progress=Math.min(1,age/22);
