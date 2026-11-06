@@ -29,7 +29,7 @@ Flask Core Web App       Media Delivery  Resumable      jokesdb.bannedfromheaven
                                     (ffmpeg, Pillow, /hooks/tusd)
 ```
 
-The logged-in **Games** page (`/games`) contains Flappy Devil, Spunk Invaders, and
+The logged-in **Games** page (`/games`) contains Fappy Turd, Spunk Invaders, and
 Hell Serpent, with separate personal bests and top-ten leaderboards. `ArcadeRun`
 records server-seeded rounds; `ArcadeBestScore` stores one best per player, game,
 and rules version. See [the arcade source and scoring notes](app/static/arcade/README.md).

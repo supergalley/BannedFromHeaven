@@ -55,7 +55,7 @@
     ctx.fillStyle=lava;ctx.fillRect(0,600,W,40);ctx.strokeStyle='#ffc691';ctx.lineWidth=2;
     ctx.beginPath();for(let x=0;x<=W;x+=8){const y=602+Math.sin(x/18+s.frame/8)*3;if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();
     devil(ctx,112,s.y/100,s.frame,Math.max(-.35,Math.min(.8,s.vy/1400)));
-    if(!s.started){ctx.textAlign='center';ctx.fillStyle='#d9c3cd';ctx.font='600 14px system-ui';ctx.fillText('SPACE / TAP TO TAKE OFF',W/2,415);}
+    if(!s.started){ctx.textAlign='center';ctx.fillStyle='#d9c3cd';ctx.font='600 14px system-ui';ctx.fillText('SPACE / TAP TO FAP',W/2,415);}
   }
   function egg(ctx,x,y,frame,index){
     ctx.save();ctx.translate(x,y);ctx.rotate(Math.sin(frame/13+index)*.08);

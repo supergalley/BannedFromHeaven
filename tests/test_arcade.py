@@ -111,7 +111,7 @@ class ArcadeAPITest(unittest.TestCase):
 
     def test_games_page_login_and_csrf(self):
         page = self.client.get('/games').get_data(as_text=True)
-        for name in ['Flappy Devil', 'Spunk Invaders', 'Hell Serpent']:
+        for name in ['Fappy Turd', 'Spunk Invaders', 'Hell Serpent']:
             self.assertIn(name, page)
         self.assertIn('arcade/core.js', page)
         self.assertEqual(self.client.post('/games/flappy-devil/start', json={}).status_code, 403)

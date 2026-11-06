@@ -68,7 +68,7 @@
     touchControls.replaceChildren();
     touchControls.classList.toggle('arcade-dpad',game==='hell-serpent');
     player.classList.toggle('has-dpad',game==='hell-serpent');
-    const definitions=game==='flappy-devil'?[[1,'FLAP','control-flap']]:game==='spunk-invaders'?[[1,'←',''],[4,'FIRE','control-fire'],[2,'→','']]:[[1,'↑','control-up'],[8,'←','control-left'],[2,'→','control-right'],[4,'↓','control-down']];
+    const definitions=game==='flappy-devil'?[[1,'FAP','control-flap']]:game==='spunk-invaders'?[[1,'←',''],[4,'FIRE','control-fire'],[2,'→','']]:[[1,'↑','control-up'],[8,'←','control-left'],[2,'→','control-right'],[4,'↓','control-down']];
     definitions.forEach(([mask,label,className])=>{
       const button=document.createElement('button');button.type='button';button.className='arcade-control '+className;button.textContent=label;
       button.setAttribute('aria-label',label==='←'?'Move left':label==='→'?'Move right':label==='↑'?'Move up':label==='↓'?'Move down':label);
@@ -164,7 +164,7 @@
     setText('arcade-score',format(state.score));
     const left=Math.max(0,Math.ceil((core.MAX_FRAMES-(phase==='idle'?0:state.frame))/core.FPS));
     setText('arcade-time',Math.floor(left/60)+':'+String(left%60).padStart(2,'0'));
-    setText('arcade-extra',phase==='idle'?'Ready when you are':game==='flappy-devil'?(!state.started?'Tap or press Space to take off':'Gates cleared'):game==='spunk-invaders'?'Wave '+state.wave+' · '+('♥ '.repeat(Math.max(0,state.lives))).trim():state.body.length+' segments · '+state.apples+' souls');
+    setText('arcade-extra',phase==='idle'?'Ready when you are':game==='flappy-devil'?(!state.started?'Tap or press Space to fap':'Gates cleared'):game==='spunk-invaders'?'Wave '+state.wave+' · '+('♥ '.repeat(Math.max(0,state.lives))).trim():state.body.length+' segments · '+state.apples+' souls');
   }
   function resize(){dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=480*dpr;canvas.height=640*dpr;}
   function animate(time){

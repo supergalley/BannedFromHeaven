@@ -2,7 +2,7 @@
 
 Three original, self-hosted arcade games with original canvas artwork:
 
-- **Flappy Devil:** flap through the gates; one point per gate.
+- **Fappy Turd:** fap through the gates; one point per gate.
 - **Spunk Invaders:** swimming tadpole projectiles turn egg invaders into fading
   embryos rendered from `/static/Embryo.png`. Ten points per egg, plus 25 per wave.
 - **Hell Serpent:** steer around a 24×28 garden and collect souls; ten points each.
