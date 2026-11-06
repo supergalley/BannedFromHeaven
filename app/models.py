@@ -179,6 +179,8 @@ class User(UserMixin, db.Model):
         "UserWarning", foreign_keys="UserWarning.user_id", backref="user", lazy=True, cascade="all, delete-orphan"
     )
 
+    password_reset_requests = db.relationship("PasswordResetRequest", cascade="all, delete-orphan")
+
     arcade_runs = db.relationship("ArcadeRun", cascade="all, delete-orphan", backref="player")
     arcade_scores = db.relationship("ArcadeBestScore", cascade="all, delete-orphan", backref="player")
 
@@ -1161,3 +1163,16 @@ class ArcadeBestScore(db.Model):
     score = db.Column(db.Integer, nullable=False)
     achieved_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     run_id = db.Column(db.String(48), nullable=False)
+
+
+class PasswordResetRequest(db.Model):
+    __tablename__ = "password_reset_requests"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    ip = db.Column(db.String(64), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    token_hash = db.Column(db.String(64), unique=True)
+    password_fingerprint = db.Column(db.String(64))
+    expires_at = db.Column(db.DateTime)
+    used_at = db.Column(db.DateTime)

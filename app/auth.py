@@ -533,6 +533,144 @@ def verify_resend():
     return redirect(url_for("auth.verify"))
 
 
+
+def _recovery_csrf():
+    if "recovery_csrf" not in session:
+        session["recovery_csrf"] = secrets.token_urlsafe(32)
+    return session["recovery_csrf"]
+
+
+def _valid_recovery_csrf():
+    return secrets.compare_digest(
+        request.form.get("csrf_token", "").encode(), _recovery_csrf().encode()
+    )
+
+
+@auth_bp.after_request
+def protect_recovery_pages(response):
+    if request.endpoint in ("auth.forgot_password", "auth.reset_password"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Referrer-Policy"] = "no-referrer"
+    return response
+
+
+@auth_bp.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    from hashlib import sha256
+    from sqlalchemy import func
+    from .models import PasswordResetRequest
+
+    if request.method == "POST":
+        if not _valid_recovery_csrf():
+            return "Your form expired. Reload the page and try again.", 400
+        identity = request.form.get("identity", "").strip()[:254]
+        if not identity:
+            flash("Enter your username or email address.", "danger")
+            return render_template("auth_forgot_password.html", csrf_token=_recovery_csrf(), sent=False), 400
+        now = datetime.utcnow()
+        ip = get_client_ip() or "unknown"
+        PasswordResetRequest.query.filter(
+            PasswordResetRequest.created_at < now - timedelta(days=1)
+        ).delete(synchronize_session=False)
+        ip_count = PasswordResetRequest.query.filter(
+            PasswordResetRequest.ip == ip,
+            PasswordResetRequest.created_at > now - timedelta(minutes=15),
+        ).count()
+        if ip_count >= 5:
+            db.session.commit()
+            flash("Too many recovery requests. Please try again in 15 minutes.", "warning")
+            return render_template("auth_forgot_password.html", csrf_token=_recovery_csrf(), sent=False), 429
+        user = User.query.filter(
+            (User.username == identity) | (func.lower(User.email) == identity.lower())
+        ).first()
+        row = PasswordResetRequest(ip=ip, user_id=user.id if user else None, created_at=now)
+        can_send = user and not ip_is_blocked(ip) and not (
+            is_blacklisted("username", user.username) or is_blacklisted("email", user.email)
+        )
+        if can_send:
+            can_send = PasswordResetRequest.query.filter(
+                PasswordResetRequest.user_id == user.id,
+                PasswordResetRequest.token_hash.isnot(None),
+                PasswordResetRequest.created_at > now - timedelta(hours=1),
+            ).count() < 3
+        token = secrets.token_urlsafe(32)
+        if can_send:
+            row.token_hash = sha256(token.encode()).hexdigest()
+            row.password_fingerprint = sha256(user.password_hash.encode()).hexdigest()
+            row.expires_at = now + timedelta(minutes=30)
+        db.session.add(row)
+        db.session.commit()
+        if can_send:
+            # Never derive recovery links from the request's untrusted Host header.
+            domain = (current_app.config.get("DOMAIN") or "bannedfromheaven.com").strip().rstrip("/")
+            domain = "https://" + domain.removeprefix("https://").removeprefix("http://")
+            link = domain + url_for("auth.reset_password", token=token)
+            try:
+                send_email(
+                    to=user.email,
+                    subject="Reset your BannedFromHeaven password",
+                    text_body=(
+                        "A password reset was requested for your BannedFromHeaven account.\n\n"
+                        f"Choose a new password here:\n{link}\n\n"
+                        "This link expires in 30 minutes and can only be used once. "
+                        "If you did not request this, ignore this email; your password has not changed.\n\n"
+                        "Check your junk/spam folder and add satan@bannedfromheaven.com "
+                        "to your contacts or safe senders list.\n"
+                    ),
+                )
+            except Exception:
+                # Keep the public response identical for registered and unknown accounts.
+                current_app.logger.error("Password reset email delivery failed (request %s)", row.id)
+        return render_template("auth_forgot_password.html", csrf_token=_recovery_csrf(), sent=True)
+    return render_template("auth_forgot_password.html", csrf_token=_recovery_csrf(), sent=False)
+
+
+@auth_bp.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    from hashlib import sha256
+    from .models import PasswordResetRequest
+
+    now = datetime.utcnow()
+    token_hash = sha256(token.encode()).hexdigest()
+    row = PasswordResetRequest.query.filter_by(token_hash=token_hash, used_at=None).first()
+    user = db.session.get(User, row.user_id) if row else None
+    valid = bool(row and user and row.expires_at > now and secrets.compare_digest(
+        row.password_fingerprint, sha256(user.password_hash.encode()).hexdigest()
+    ))
+    if not valid:
+        return render_template("auth_reset_password.html", valid=False), 400
+    if request.method == "POST":
+        if not _valid_recovery_csrf():
+            return "Your form expired. Reload the page and try again.", 400
+        password = request.form.get("password", "")
+        confirm = request.form.get("confirm_password", "")
+        if not 6 <= len(password) <= 256:
+            flash("Password must be between 6 and 256 characters.", "danger")
+        elif password != confirm:
+            flash("Passwords do not match.", "danger")
+        else:
+            original_hash = user.password_hash
+            new_hash = generate_password_hash(password)
+            claimed = PasswordResetRequest.query.filter_by(id=row.id, used_at=None).filter(
+                PasswordResetRequest.expires_at > datetime.utcnow()
+            ).update({PasswordResetRequest.used_at: datetime.utcnow()}, synchronize_session=False)
+            changed = User.query.filter_by(id=user.id, password_hash=original_hash).update(
+                {User.password_hash: new_hash}, synchronize_session=False
+            ) if claimed else 0
+            if not claimed or not changed:
+                db.session.rollback()
+                return render_template("auth_reset_password.html", valid=False), 400
+            PasswordResetRequest.query.filter_by(user_id=user.id, used_at=None).update(
+                {PasswordResetRequest.used_at: datetime.utcnow()}, synchronize_session=False
+            )
+            db.session.commit()
+            logout_user()
+            session.pop("recovery_csrf", None)
+            flash("Your password has been reset. Log in with your new password.", "success")
+            return redirect(url_for("auth.login"))
+    return render_template("auth_reset_password.html", valid=True, csrf_token=_recovery_csrf())
+
+
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
