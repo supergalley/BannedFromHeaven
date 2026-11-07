@@ -46,6 +46,7 @@
   function lockPicker(locked){cards.forEach(card=>{card.disabled=locked;});startButton.disabled=locked;restartButton.disabled=locked||!isLive();}
   function preview(slug){
     const s=core.create(slug,1337);
+    if(slug==='hammer-time'){core.step(s,0);s.frame=0;}
     if(slug==='flappy-devil'){s.y=31500;s.pipes=[{x:31000,center:30000,passed:false}];s.started=true;}
     return s;
   }
@@ -68,7 +69,7 @@
     touchControls.replaceChildren();
     touchControls.classList.toggle('arcade-dpad',game==='hell-serpent');
     player.classList.toggle('has-dpad',game==='hell-serpent');
-    const definitions=game==='flappy-devil'?[[1,'FAP','control-flap']]:game==='spunk-invaders'?[[1,'←',''],[4,'FIRE','control-fire'],[2,'→','']]:[[1,'↑','control-up'],[8,'←','control-left'],[2,'→','control-right'],[4,'↓','control-down']];
+    const definitions=game==='hammer-time'?[[1,'←',''],[2,'→',''],[4,'JUMP',''],[8,'SWING','control-fire']]:game==='flappy-devil'?[[1,'FAP','control-flap']]:game==='spunk-invaders'?[[1,'←',''],[4,'FIRE','control-fire'],[2,'→','']]:[[1,'↑','control-up'],[8,'←','control-left'],[2,'→','control-right'],[4,'↓','control-down']];
     definitions.forEach(([mask,label,className])=>{
       const button=document.createElement('button');button.type='button';button.className='arcade-control '+className;button.textContent=label;
       button.setAttribute('aria-label',label==='←'?'Move left':label==='→'?'Move right':label==='↑'?'Move up':label==='↓'?'Move down':label);
@@ -133,7 +134,7 @@
     resetControls();phase='playing';overlay.hidden=true;pauseButton.textContent='Pause';lastTime=performance.now();accumulator=0;canvas.focus({preventScroll:true});
   }
   function endingCopy(){
-    return ({crash:'The gates of hell claim another one.',hit:'The eggs got the better of you.',invasion:'The invasion reached your launcher.',wall:'The walls remain undefeated.',tail:'You got a little too close to yourself.',cleared:'Every soul collected. Absolute menace.',time:'Five minutes of chaos. Nicely done.'})[state.reason]||'Another round in the books.';
+    return ({'hammer-hit':'Out of lives. Time for another stroll.','hammer-time':'Time up! That was a busy 90 seconds.',crash:'The gates of hell claim another one.',hit:'The eggs got the better of you.',invasion:'The invasion reached your launcher.',wall:'The walls remain undefeated.',tail:'You got a little too close to yourself.',cleared:'Every soul collected. Absolute menace.',time:'Five minutes of chaos. Nicely done.'})[state.reason]||'Another round in the books.';
   }
   function finish(){
     phase='over';resetControls();pauseButton.disabled=true;restartButton.disabled=true;
@@ -157,14 +158,15 @@
     let touch=0;for(const mask of touches.values())touch|=mask;
     if(game==='spunk-invaders')for(const x of aims.values())touch|=4|(x<state.x/100-12?1:x>state.x/100+12?2:0);
     if(game==='hell-serpent')return snakeDirection;
+    if(game==='hammer-time')return ((keys.has('arrowleft')||keys.has('a')||(touch&1))?1:0)|((keys.has('arrowright')||keys.has('d')||(touch&2))?2:0)|((keys.has('arrowup')||keys.has('w')||(touch&4))?4:0)|((keys.has(' ')||(touch&8))?8:0);
     if(game==='flappy-devil'){if(flapQueued){if(recordedInput===1)return 0;flapQueued=false;return 1;}return (keys.has(' ')||keys.has('arrowup')||keys.has('w')||(touch&1))?1:0;}
     return ((keys.has('arrowleft')||keys.has('a')||(touch&1))?1:0)|((keys.has('arrowright')||keys.has('d')||(touch&2))?2:0)|((keys.has(' ')||(touch&4))?4:0);
   }
   function updateHud(){
     setText('arcade-score',format(state.score));
-    const left=Math.max(0,Math.ceil((core.MAX_FRAMES-(phase==='idle'?0:state.frame))/core.FPS));
+    const left=Math.max(0,Math.ceil(((game==='hammer-time'?2700:core.MAX_FRAMES)-(phase==='idle'?0:state.frame))/core.FPS));
     setText('arcade-time',Math.floor(left/60)+':'+String(left%60).padStart(2,'0'));
-    setText('arcade-extra',phase==='idle'?'Ready when you are':game==='flappy-devil'?(!state.started?'Tap or press Space to fap':'Gates cleared'):game==='spunk-invaders'?'Wave '+state.wave+' · '+('♥ '.repeat(Math.max(0,state.lives))).trim():state.body.length+' segments · '+state.apples+' souls');
+    setText('arcade-extra',phase==='idle'?'Ready when you are':game==='flappy-devil'?(!state.started?'Tap or press Space to fap':'Gates cleared'):game==='spunk-invaders'?'Wave '+state.wave+' · '+('♥ '.repeat(Math.max(0,state.lives))).trim():game==='hammer-time'?('♥ '.repeat(Math.max(0,state.lives))).trim()+' · '+state.hits+' hits':state.body.length+' segments · '+state.apples+' souls');
   }
   function resize(){dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=480*dpr;canvas.height=640*dpr;}
   function animate(time){
@@ -204,6 +206,7 @@
     event.preventDefault();canvas.focus({preventScroll:true});canvas.setPointerCapture(event.pointerId);
     if(game==='flappy-devil'){touches.set(event.pointerId,1);flapQueued=true;}
     else if(game==='spunk-invaders')canvasInput(event);
+    else if(game==='hammer-time')touches.set(event.pointerId,8);
     else dragStart={id:event.pointerId,x:event.clientX,y:event.clientY};
   });
   canvas.addEventListener('pointermove',event=>{
@@ -224,7 +227,8 @@
   document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});window.addEventListener('blur',()=>{resetControls();pause();});window.addEventListener('resize',resize);
   document.querySelectorAll('[data-preview]').forEach(node=>{
     const c=node.getContext('2d'),slug=node.dataset.preview;
-    if(slug==='flappy-devil')art.devil(c,53,41,0,0,1.55);
+    if(slug==='hammer-time'){window.BFHHammerArt.preview(c);const sprite=new Image();sprite.onload=()=>{c.clearRect(0,0,100,80);window.BFHHammerArt.preview(c);};sprite.src='/static/arcade/hammer-characters.png';}
+    else if(slug==='flappy-devil')art.devil(c,53,41,0,0,1.55);
     else if(slug==='spunk-invaders'){art.egg(c,69,28,0,0);art.tadpole(c,29,51,0,0);}
     else art.serpent(c,[{x:17,y:57},{x:33,y:57},{x:49,y:51},{x:49,y:31},{x:63,y:29},{x:78,y:29}],1);
   });

@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: MIT
 """Deterministic, integer-only arcade rules, mirrored by static/arcade/core.js."""
+from .hammer import create_hammer, step_hammer
+
 FPS = 30
 MAX_FRAMES = FPS * 60 * 5
 RULES_VERSION = 1
 GAME_INPUTS = {
+    "hammer-time": set(range(16)),
     "flappy-devil": {0, 1},
     "spunk-invaders": set(range(8)),
     "hell-serpent": {0, 1, 2, 4, 8},
@@ -43,7 +46,9 @@ def place_food(state):
 
 def create_game(game, seed):
     state = dict(game=game, frame=0, score=0, ended=False, reason="", rng=seed & 0xFFFFFFFF)
-    if game == "flappy-devil":
+    if game == "hammer-time":
+        create_hammer(state)
+    elif game == "flappy-devil":
         state.update(y=30000, vy=0, started=False, flight=0, pipes=[], last_input=0)
     elif game == "spunk-invaders":
         state.update(x=24000, lives=3, wave=1, direction=1, eggs=eggs(), shots=[], bombs=[],
@@ -172,7 +177,9 @@ def step_snake(state, controls):
 def step_game(state, controls):
     if state["ended"]:
         return
-    if state["game"] == "flappy-devil":
+    if state["game"] == "hammer-time":
+        step_hammer(state, controls, random_number)
+    elif state["game"] == "flappy-devil":
         step_flappy(state, controls)
     elif state["game"] == "spunk-invaders":
         step_invaders(state, controls)

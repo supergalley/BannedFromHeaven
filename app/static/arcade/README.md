@@ -1,7 +1,8 @@
 # BannedFromHeaven arcade
 
-Three original, self-hosted arcade games with original canvas artwork:
+Four original, self-hosted arcade games with original canvas artwork:
 
+- **Hammer-Time:** a 90-second scrolling platform game. Move left/right, jump onto ledges, and swing the mallet for ten points per hit. Three lives; seeded random opponent appearances.
 - **Fappy Turd:** fap through the gates; one point per gate.
 - **Spunk Invaders:** swimming tadpole projectiles turn egg invaders into fading
   embryos rendered from `/static/Embryo.png`. Ten points per egg, plus 25 per wave.
@@ -42,3 +43,5 @@ Run `node tests/check_arcade_js.cjs` from the repository root to replay the reco
 round fixtures in JavaScript. The same fixtures are checked on the server by
 `jokeDB=/tmp/arcade-test.db python -m unittest discover -s tests -p test_arcade.py`.
 Always use an explicitly disposable `/tmp/` database for tests.
+
+Hammer-Time artwork is in `hammer-characters.png`, a transparent 2×2 atlas generated with the built-in image tool from user-provided references. The source rectangles and mallet drawing are in `hammer_art.js`; deterministic rules are mirrored in `hammer.js` and `app/arcade/hammer.py`.

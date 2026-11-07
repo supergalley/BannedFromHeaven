@@ -14,10 +14,13 @@ from .arcade.rules import FPS, MAX_FRAMES, RULES_VERSION, ReplayError, replay_sc
 from .models import ArcadeRun, ArcadeBestScore, User
 
 
-ASSET_VERSION = 6
+ASSET_VERSION = 7
 
 games_bp = Blueprint("games", __name__, url_prefix="/games")
 GAMES = {
+    "hammer-time": dict(name="Hammer-Time", genre="Walk. Jump. Wallop.",
+                        description="Take your oversized mallet for a stroll. Jump onto ledges and time your swings in a 90-second street arcade.",
+                        controls="Move with ← → or A/D. Jump with ↑ or W. Swing with Space. Touch buttons work too. 10 points per hit; three lives.", accent="#ffc164"),
     "flappy-devil": dict(name="Fappy Turd", genre="Fap. Dodge. Repeat.",
                         description="A little devil, a lot of bad decisions. Squeeze through the gates of hell.",
                         controls="Tap the game, the Fap button, or Space to fap. One point per gate.", accent="#ff706e"),

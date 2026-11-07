@@ -9,7 +9,7 @@
       <h1>Games for the damned.</h1>
       <p>Pick a game. Beat your best. Take the top spot.</p>
     </div>
-    <div class="arcade-hero-tag"><span class="arcade-live-dot"></span> THREE GAMES. ENDLESS GRUDGES.</div>
+    <div class="arcade-hero-tag"><span class="arcade-live-dot"></span> {{ games|length }} GAMES. ENDLESS GRUDGES.</div>
   </header>
   <div class="arcade-picker" role="group" aria-label="Choose a game">
     {% for slug, game in games.items() %}
@@ -66,6 +66,8 @@
 {% endblock %}
 {% block scripts %}
 {{ super() }}
+<script src="{{ url_for('static', filename='arcade/hammer.js') }}?v={{ asset_version }}" defer></script>
+<script src="{{ url_for('static', filename='arcade/hammer_art.js') }}?v={{ asset_version }}" defer></script>
 <script src="{{ url_for('static', filename='arcade/core.js') }}?v={{ asset_version }}" defer></script>
 <script src="{{ url_for('static', filename='arcade/art.js') }}?v={{ asset_version }}" defer></script>
 <script src="{{ url_for('static', filename='arcade/play.js') }}?v={{ asset_version }}" defer></script>

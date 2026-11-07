@@ -2,6 +2,7 @@
  * Original integer-only arcade rules. Mirrored by app/arcade/rules.py. */
 (function (root) {
   'use strict';
+  const hammer=typeof module!=='undefined'&&module.exports?require('./hammer.js'):root.BFHHammer;
   const FPS = 30;
   const MAX_FRAMES = FPS * 60 * 5;
   const RULES_VERSION = 1;
@@ -23,7 +24,8 @@
   }
   function create(game,seed) {
     const s={game,frame:0,score:0,ended:false,reason:'',rng:seed>>>0};
-    if(game==='flappy-devil')Object.assign(s,{y:30000,vy:0,started:false,flight:0,pipes:[],last_input:0});
+    if(game==='hammer-time')hammer.create(s);
+    else if(game==='flappy-devil')Object.assign(s,{y:30000,vy:0,started:false,flight:0,pipes:[],last_input:0});
     else if(game==='spunk-invaders')Object.assign(s,{x:24000,lives:3,wave:1,direction:1,eggs:eggs(),shots:[],bombs:[],effects:[],next_shot:0,next_bomb:30,invulnerable_until:0});
     else if(game==='hell-serpent') {Object.assign(s,{body:[[12,14],[11,14],[10,14],[9,14]],direction:1,wanted:1,countdown:5,apples:0,food:null});placeFood(s);}
     else throw new Error('Unknown game');
@@ -91,7 +93,7 @@
   }
   function step(s,input){
     if(s.ended)return;
-    if(s.game==='flappy-devil')flappy(s,input);else if(s.game==='spunk-invaders')invaders(s,input);else snake(s,input);
+    if(s.game==='hammer-time')hammer.step(s,input,randomNumber);else if(s.game==='flappy-devil')flappy(s,input);else if(s.game==='spunk-invaders')invaders(s,input);else snake(s,input);
     s.frame++;
     if(s.frame>=MAX_FRAMES&&!s.ended){s.ended=true;s.reason='time';}
   }

@@ -19,4 +19,4 @@ for (const replay of replays) {
   core.step(state, 0);
   assert.equal(JSON.stringify(state), endedState, 'Completed rounds must stay frozen');
 }
-console.log('All six recorded arcade rounds match the JavaScript and Python score fixtures.');
+console.log(`All ${replays.length} recorded arcade rounds match the JavaScript and Python score fixtures.`);

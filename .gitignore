@@ -54,3 +54,5 @@ app/message_images/
 # Required arcade artwork supplied for Spunk Invaders
 !app/static/Embryo.png
 !app/static/Spaceship.png
+
+!app/static/arcade/hammer-characters.png

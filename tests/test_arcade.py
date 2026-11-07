@@ -111,7 +111,7 @@ class ArcadeAPITest(unittest.TestCase):
 
     def test_games_page_login_and_csrf(self):
         page = self.client.get('/games').get_data(as_text=True)
-        for name in ['Fappy Turd', 'Spunk Invaders', 'Hell Serpent']:
+        for name in ['Hammer-Time', 'Fappy Turd', 'Spunk Invaders', 'Hell Serpent']:
             self.assertIn(name, page)
         self.assertIn('arcade/core.js', page)
         self.assertEqual(self.client.post('/games/flappy-devil/start', json={}).status_code, 403)
@@ -131,7 +131,7 @@ class ArcadeAPITest(unittest.TestCase):
             self.assertTrue(result.json['new_best'])
             self.assertIn('player_one', result.json['leaderboard_html'])
             self.assertEqual(result.json['rank'], 1)
-        self.assertEqual(ArcadeBestScore.query.count(), 3)
+        self.assertEqual(ArcadeBestScore.query.count(), len(REPLAYS[::2]))
 
     def test_forged_score_is_rejected_without_consuming_valid_round(self):
         data = self.prepare()

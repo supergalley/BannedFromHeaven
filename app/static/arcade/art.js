@@ -199,6 +199,6 @@
     serpent(ctx,smoothSerpentPoints(s,alpha),s.direction);
     ctx.strokeStyle='#405f4b';ctx.strokeRect(.5,40.5,479,559);
   }
-  function draw(ctx,s,dpr=1,alpha=1){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);ctx.save();if(s.game==='flappy-devil')flappy(ctx,s);else if(s.game==='spunk-invaders')invaders(ctx,s);else snake(ctx,s,alpha);ctx.restore();}
+  function draw(ctx,s,dpr=1,alpha=1){ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);ctx.save();if(s.game==='hammer-time')root.BFHHammerArt.draw(ctx,s);else if(s.game==='flappy-devil')flappy(ctx,s);else if(s.game==='spunk-invaders')invaders(ctx,s);else snake(ctx,s,alpha);ctx.restore();}
   root.BFHArcadeArt={draw,devil,egg,tadpole,serpent};
 })(window);
