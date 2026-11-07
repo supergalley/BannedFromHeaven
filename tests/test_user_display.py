@@ -198,6 +198,71 @@ class UserDisplayTest(unittest.TestCase):
             self.assertIn('4 active warning strikes', label)
             self.assertIn('/moderation/users/1/strike-summary', label)
 
+    def test_ban_pill_visibility_and_remaining_time(self):
+        from flask_login import login_user
+        from app.user_display import active_bans
+        staff = User.query.filter_by(username='veteran').one()
+        banned = User.query.filter_by(username='newbie').one()
+        banned.ban_until = self.now + timedelta(days=2, hours=3, minutes=4)
+        db.session.commit()
+        for role in ('is_admin', 'is_moderator'):
+            staff.is_admin = role == 'is_admin'
+            staff.is_moderator = role == 'is_moderator'
+            with app.test_request_context():
+                login_user(staff)
+                label = str(display_username('newbie'))
+                self.assertIn('bg-danger user-ban-badge', label)
+                self.assertIn('Ban remaining: 2 days, 3 hours, 4 minutes', label)
+                self.assertIn('data-ban-until="2026-11-01T15:04:00Z"', label)
+                self.assertIs(active_bans(), active_bans())
+        with app.test_request_context():
+            g.pop("_login_user", None)
+            self.assertEqual(active_bans(), {})
+            self.assertNotIn('user-ban-badge', str(display_username('newbie')))
+        with app.test_request_context():
+            login_user(banned)
+            self.assertEqual(active_bans(), {})
+            self.assertNotIn('user-ban-badge', str(display_username('newbie')))
+
+    def test_ban_pill_expiry_removal_and_subminute_label(self):
+        from flask_login import login_user
+        staff = User.query.filter_by(username='veteran').one()
+        staff.is_admin = True
+        banned = User.query.filter_by(username='newbie').one()
+        banned.ban_until = self.now + timedelta(seconds=10)
+        db.session.commit()
+        with app.test_request_context():
+            login_user(staff)
+            self.assertIn('Ban remaining: 1 minute', str(display_username('newbie')))
+            self.mock_clock.utcnow.return_value = self.now + timedelta(seconds=10)
+            self.assertNotIn('user-ban-badge', str(display_username('newbie')))
+        self.mock_clock.utcnow.return_value = self.now
+        for expiry in (None, self.now, self.now - timedelta(days=1)):
+            banned.ban_until = expiry; db.session.commit()
+            with app.test_request_context():
+                g.pop("username_active_bans", None)
+                login_user(staff)
+                self.assertNotIn('user-ban-badge', str(display_username('newbie')))
+
+    def test_ban_metadata_in_staff_pages_only(self):
+        staff = User.query.filter_by(username='veteran').one()
+        staff.is_admin = True
+        banned = User.query.filter_by(username='newbie').one()
+        banned.ban_until = self.now + timedelta(days=2)
+        db.session.commit()
+        app.config.update(SECRET_KEY='test', SESSION_PROTECTION=None)
+        client = app.test_client()
+        public = client.get('/user/newbie').get_data(as_text=True)
+        self.assertNotIn('data-ban-until=', public)
+        self.assertNotIn('"newbie": "2026-11-01T12:00:00Z"', public)
+        with client.session_transaction() as session:
+            session['_user_id'] = str(staff.id)
+            session['_fresh'] = True
+        g.pop('_login_user', None)
+        staff_page = client.get('/user/newbie').get_data(as_text=True)
+        self.assertIn('bg-danger user-ban-badge', staff_page)
+        self.assertIn('"newbie": "2026-11-01T12:00:00Z"', staff_page)
+
 
 if __name__ == '__main__':
     unittest.main()

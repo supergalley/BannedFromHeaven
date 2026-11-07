@@ -1,4 +1,5 @@
 <style>
+.user-ban-badge { background-color: #dc3545; color: #fff; cursor: help; }
 .user-strike-badge { background-color: #198754; color: #fff; cursor: pointer; }
 .user-strike-badge[data-strike-level="2"] { background-color: #fd7e14; color: #111; }
 .user-strike-badge[data-strike-level="3"] { background-color: #dc3545; color: #fff; }
@@ -11,6 +12,19 @@
   const newMembers = new Set({{ new_member_names|tojson }});
   const strikes = new Map(Object.entries({{ username_strike_counts|tojson }}));
   const strikeUrls = new Map(Object.entries({{ username_strike_urls|tojson }}));
+  const bans = new Map(Object.entries({{ username_active_bans|tojson }}));
+  function updateBanBadge(badge) {
+    let minutes = Math.ceil((Date.parse(badge.dataset.banUntil) - Date.now()) / 60000);
+    if (!(minutes > 0)) { badge.remove(); return; }
+    const days = Math.floor(minutes / 1440); minutes %= 1440;
+    const hours = Math.floor(minutes / 60); minutes %= 60;
+    const parts = [[days, 'day'], [hours, 'hour'], [minutes, 'minute']]
+      .filter(([value]) => value).map(([value, unit]) => value + ' ' + unit + (value === 1 ? '' : 's'));
+    const text = 'Ban remaining: ' + parts.join(', ');
+    badge.title = text;
+    badge.setAttribute('aria-label', text);
+  }
+  setInterval(() => document.querySelectorAll('.user-ban-badge').forEach(updateBanBadge), 60000);
   function usernameLabel(username) {
     const name = String(username || '');
     const label = document.createElement('span');
@@ -28,6 +42,16 @@
       badge.setAttribute('aria-controls', 'user-strike-card');
       badge.textContent = 'Strike';
       badge.setAttribute('aria-label', count + ' active warning strike' + (count === 1 ? '' : 's'));
+      label.append(' ', badge);
+    }
+    const until = bans.get(name);
+    if (until && Date.parse(until) > Date.now()) {
+      const badge = document.createElement('span');
+      badge.className = 'badge rounded-pill ms-1 bg-danger user-ban-badge';
+      badge.dataset.banUntil = until;
+      badge.tabIndex = 0;
+      badge.textContent = 'Ban';
+      updateBanBadge(badge);
       label.append(' ', badge);
     }
     return label;
