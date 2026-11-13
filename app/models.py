@@ -365,6 +365,7 @@ class Joke(db.Model):
     # title now optional, we’ll auto-fill or ignore it
     title = db.Column(db.String(200), nullable=True)
     body = db.Column(db.Text, nullable=False)
+    body_format = db.Column(db.Text, nullable=True)
     salute_to = db.Column(db.String(32), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     score = db.Column(db.Integer, default=0, index=True)
@@ -420,6 +421,7 @@ class JokeDraft(db.Model):
     # joke | meme | clip
     joke_type = db.Column(db.String(10), nullable=False, default="joke")
     body = db.Column(db.Text, nullable=False, default="")
+    body_format = db.Column(db.Text, nullable=True)
     salute_to = db.Column(db.String(32), nullable=True)
     category_id = db.Column(db.Integer, db.ForeignKey("categories.id"), nullable=True)
     subcategory_id = db.Column(

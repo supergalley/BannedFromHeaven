@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Submit joke - BannedFromHeaven.com{% endblock %}
 {% block content %}
+{% include "joke_editor_assets.html" %}
 {% set active_draft = draft %}
 {% set form_body = request.form.get('body') if request.form.get('body') is not none else (active_draft.body if active_draft else '') %}
 {% set form_salute = request.form.get('salute_to') if request.form.get('salute_to') is not none else (active_draft.salute_to if active_draft and active_draft.salute_to else '') %}
@@ -65,9 +66,7 @@
         </div>
         {% if staff_html_ok %}
         <div class="form-text mt-1">
-          As a mod/admin you can use limited HTML in the text
-          (<code>&lt;b&gt;</code>, <code>&lt;i&gt;</code>, <code>&lt;a&gt;</code>, lists, etc.).
-          Scripts and event handlers are stripped; unclosed tags are auto-closed on submit.
+          Use the toolbar to format your text. The HTML button switches to the existing staff HTML source editor.
         </div>
         {% endif %}
       </div>
@@ -118,7 +117,8 @@
       </div>
       <div id="joke-text-group" class="mb-3">
         <label class="form-label" id="body-label">{% if joke_type in ('meme', 'clip') %}Caption (optional){% else %}Joke{% endif %}</label>
-        <textarea name="body" id="joke-body" rows="6" class="form-control"
+        <input type="hidden" name="body_format" disabled value="{{ request.form.get('body_format', active_draft.body_format if active_draft and active_draft.body_format else '') }}">
+        <textarea data-joke-editor data-legacy-html="{{ '1' if staff_html_ok else '0' }}" name="body" id="joke-body" rows="6" class="form-control"
                   placeholder="Write the joke (or caption). Paste an image here to turn this into a meme.">{{ form_body }}</textarea>
       </div>
 
@@ -629,6 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
       category_id: categoryId,
       subcategory_id: subcategoryId,
       body,
+      body_format: document.querySelector('input[name="body_format"]:not(:disabled)')?.value || '',
       salute_to: saluteTo,
       token,
       content_type: file.type || ''

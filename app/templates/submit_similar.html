@@ -94,6 +94,7 @@
       {% if draft_id %}
       <input type="hidden" name="draft_id" value="{{ draft_id }}">
       {% endif %}
+      <input type="hidden" name="body_format" value="{{ draft_body_format or '' }}">
       <textarea name="body" class="d-none" aria-hidden="true">{{ draft_body or '' }}</textarea>
       <button type="submit" class="btn btn-success" id="confirm-original-btn">
         These aren’t the same — post mine

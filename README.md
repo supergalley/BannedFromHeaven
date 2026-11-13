@@ -217,3 +217,14 @@ erDiagram
 - **`./ClearUsersPassword <username>`**: Resets a user's password directly in `jokes.db` to `ChangeMe123`.
 - **`./addjoketype <slug> <name>`**: Adds a new top-level category directly via docker exec.
 - **`python seed_subcategories.py`**: Seeds the database with curated subcategory tags across all existing categories.
+
+The submit/edit joke toolbar uses locally hosted Quill 2.0.3 (BSD licence in
+`app/static/vendor/quill/LICENSE`). `jokes.body` and `joke_drafts.body` remain
+plain text; optional `body_format` columns hold validated text inserts and only
+bold, italic and strikethrough flags. Rendering escapes the text and generates
+only those inline tags. Search, duplicate detection, previews and copy buttons
+continue using plain text. If the editor fails to load, the textarea remains usable.
+
+Rollback: reverting the formatting commit requires no database downgrade. The
+previous code ignores the extra nullable columns and displays the plain-text body.
+Keep those columns when rolling back so formatting can return after redeployment.

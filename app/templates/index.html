@@ -185,7 +185,7 @@
         {% endif %}
         
         {% if joke.body %}
-          <p class="mt-1 mb-1" style="white-space:pre-wrap;">{% if joke.author and (joke.author.is_admin or joke.author.is_moderator) %}{{ joke.body.lstrip()|safe }}{% else %}{{ joke.body.lstrip() }}{% endif %}</p>
+          <p class="mt-1 mb-1" style="white-space:pre-wrap;">{{ joke|joke_body }}</p>
           <button type="button"
             class="btn btn-sm btn-outline-light copy-joke-btn"
             data-copy-text="{{ joke.body|e }}"

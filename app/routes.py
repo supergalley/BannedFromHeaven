@@ -1,3 +1,4 @@
+from .joke_formatting import prepare_joke_body
 # app/routes.py
 import base64
 import bleach
@@ -995,11 +996,12 @@ def edit_joke(joke_id):
 
     if request.method == "POST":
         body = request.form.get("body", "")
-        body = maybe_sanitize_post_html(body, current_user)
+        body, body_format = prepare_joke_body(body, request.form.get("body_format"), current_user)
         body = body.replace("\r\n", "\n")
         body = body.replace("\u00a0", " ")  # NBSP --> Normal Space
         body = body.lstrip()
         joke.body = body
+        joke.body_format = body_format
 
         # Update category / subcategory if provided
         cat_id, sub_id = resolve_category_subcategory(
@@ -1788,7 +1790,7 @@ def uploads_finalize():
     )
 
     body = (data.get("body") or "").strip()
-    body = maybe_sanitize_post_html(body, user)
+    body, body_format = prepare_joke_body(body, data.get("body_format"), user)
     salute_to = normalize_salute_to(
         data.get("salute_to"), actor_username=user.username
     )
@@ -1847,6 +1849,7 @@ def uploads_finalize():
 
         set_draft_type(draft, joke_type)
         draft.body = body
+        draft.body_format = body_format
         draft.salute_to = salute_to
         draft.category_id = category_id_int
         draft.subcategory_id = subcategory_id_int
@@ -1906,6 +1909,7 @@ def uploads_finalize():
 
     joke = Joke(
         body=body,
+        body_format=body_format,
         category_id=category_id_int,
         subcategory_id=subcategory_id_int,
         image_filename=image_filename,
@@ -2083,6 +2087,7 @@ def _save_joke_draft_from_form(
 
     draft.joke_type = joke_type if joke_type in VALID_SUBMIT_TYPES else "joke"
     draft.body = body or ""
+    _, draft.body_format = prepare_joke_body(body, request.form.get("body_format"), current_user)
     draft.salute_to = salute_to
     draft.category_id = category_id
     draft.subcategory_id = subcategory_id
@@ -2165,7 +2170,7 @@ def submit_joke():
         request.form.get("salute_to", ""),
         actor_username=current_user.username,
     )
-    body = maybe_sanitize_post_html(body, current_user)
+    body, body_format = prepare_joke_body(body, request.form.get("body_format"), current_user)
 
     # Re-bind draft from form (authoritative on POST)
     form_draft_id = request.form.get("draft_id", type=int)
@@ -2289,6 +2294,7 @@ def submit_joke():
                         "submit_similar.html",
                         similar=similar,
                         draft_body=body,
+                        draft_body_format=body_format,
                         draft_joke_type="meme",
                         draft_image_filename=image_filename,
                         draft_category_id=category_id or "",
@@ -2355,6 +2361,7 @@ def submit_joke():
                 "submit_similar.html",
                 similar=[(joke_hit, score, method)],
                 draft_body=body,
+                draft_body_format=body_format,
                 draft_category_id=category_id or "",
                 draft_salute_to=salute_to or "",
                 draft_id=draft.id if draft else "",
@@ -2407,6 +2414,7 @@ def submit_joke():
                         "submit_similar.html",
                         similar=similar,
                         draft_body=body,
+                        draft_body_format=body_format,
                         draft_category_id=category_id or "",
                         draft_salute_to=salute_to or "",
                         draft_id=draft.id if draft else "",
@@ -2457,6 +2465,7 @@ def submit_joke():
 
     joke = Joke(
         body=body,
+        body_format=body_format,
         category_id=category_id,
         subcategory_id=subcategory_id,
         image_filename=image_filename,
@@ -2487,6 +2496,7 @@ def submit_joke():
                 "submit_similar.html",
                 similar=[(joke_hit, score, method)],
                 draft_body=body,
+                draft_body_format=body_format,
                 draft_category_id=category_id or "",
                 draft_salute_to=salute_to or "",
                 draft_id=draft.id if draft else "",

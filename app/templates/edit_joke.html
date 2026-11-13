@@ -2,6 +2,7 @@
 {% block title %}Edit post - BannedFromHeaven.com{% endblock %}
 
 {% block content %}
+{% include "joke_editor_assets.html" %}
 <h3 class="mt-3">Edit post</h3>
 
 <form method="post" autocomplete="off">
@@ -61,7 +62,8 @@
 
   <div class="mb-3">
     <label class="form-label">Text</label>
-    <textarea name="body" class="form-control" rows="6">{{ joke.body }}</textarea>
+    <input type="hidden" name="body_format" disabled value="{{ joke.body_format or '' }}">
+    <textarea data-joke-editor data-legacy-html="{{ '1' if joke.author and (joke.author.is_admin or joke.author.is_moderator) else '0' }}" name="body" class="form-control" rows="6">{{ joke.body }}</textarea>
     <div class="form-text">For memes this is the caption / text under the image. Leave blank for image-only.</div>
   </div>
 

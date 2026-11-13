@@ -10,7 +10,7 @@
     </div>
     {% if joke.title %}<h4 class="h6">{{ joke.title }}</h4>{% endif %}
     {% if joke.body %}
-      <div class="mb-3" style="white-space: pre-wrap; overflow-wrap: anywhere;">{% if joke.author and (joke.author.is_admin or joke.author.is_moderator) %}{{ joke.body|safe }}{% else %}{{ joke.body }}{% endif %}</div>
+      <div class="mb-3" style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ joke|joke_body }}</div>
     {% endif %}
     {% if joke.is_meme and joke.image_filename %}
       <img src="{{ UPLOADS_URL }}/{{ joke.image_filename|urlencode }}" alt="Submitted meme" class="img-fluid rounded mb-2" loading="lazy">

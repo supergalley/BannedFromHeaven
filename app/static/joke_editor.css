@@ -1,0 +1,13 @@
+.joke-editor-wrap { --editor-border: var(--bs-border-color, #495057); }
+.joke-editor-wrap .ql-toolbar.ql-snow { border: 1px solid var(--editor-border); border-radius: .375rem .375rem 0 0; background: #25252a; padding: .35rem .5rem; }
+.joke-editor-wrap .ql-container.ql-snow { border: 1px solid var(--editor-border); border-top: 0; border-radius: 0 0 .375rem .375rem; font: inherit; color: var(--bs-body-color, #eee); background: var(--bs-body-bg, #151515); }
+.joke-editor-wrap .ql-editor { min-height: 160px; padding: .6rem .75rem; font: inherit; line-height: 1.5; overflow-wrap: anywhere; }
+.joke-editor-wrap .ql-editor.ql-blank::before { color: #a5a5ad; font-style: normal; left: .75rem; right: .75rem; }
+.joke-editor-wrap:focus-within .ql-container, .joke-editor-wrap:focus-within .ql-toolbar { border-color: #86b7fe; }
+.joke-editor-wrap .ql-snow .ql-stroke { stroke: #eee; }
+.joke-editor-wrap .ql-snow .ql-fill { fill: #eee; }
+.joke-editor-wrap .ql-toolbar button { min-width: 36px; min-height: 34px; border-radius: 4px; }
+.joke-editor-wrap .ql-toolbar button:hover, .joke-editor-wrap .ql-toolbar button:focus-visible, .joke-editor-wrap .ql-toolbar button.ql-active { background: #414958; outline: none; }
+.joke-editor-wrap .ql-toolbar button:focus-visible { box-shadow: inset 0 0 0 2px #86b7fe; }
+.joke-editor-wrap .ql-toolbar .ql-formats { margin-right: .5rem; }
+textarea[data-joke-editor][hidden] { display: none !important; }

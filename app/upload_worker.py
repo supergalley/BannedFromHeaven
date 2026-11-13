@@ -84,6 +84,7 @@ def tusd_hook():
         return jsonify(ok=False, error="Missing token"), 400
     category_id = (md.get("category_id") or "").strip()
     subcategory_id = (md.get("subcategory_id") or "").strip()
+    body_format = md.get("body_format") or ""
     body_text = (md.get("body") or "").strip()
     salute_to = (md.get("salute_to") or "").strip()
     as_draft = (md.get("as_draft") or "").strip().lower() in ("1", "true", "yes", "on")
@@ -106,6 +107,7 @@ def tusd_hook():
                 "category_id": category_id,
                 "subcategory_id": subcategory_id,
                 "body": body_text,
+                "body_format": body_format,
                 "image_filename": image_filename,
                 "salute_to": salute_to,
             }
@@ -119,6 +121,7 @@ def tusd_hook():
                 "category_id": category_id,
                 "subcategory_id": subcategory_id,
                 "body": body_text,
+                "body_format": body_format,
                 "salute_to": salute_to,
                 "video_filename": video_filename,
                 "video_thumb": video_thumb,

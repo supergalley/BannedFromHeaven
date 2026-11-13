@@ -718,7 +718,10 @@ def edit_joke(joke_id):
     if request.method == "POST":
         from .routes import normalize_salute_to, resolve_category_subcategory
 
-        joke.body = request.form.get("body", "").strip()
+        from .joke_formatting import prepare_joke_body
+        joke.body, joke.body_format = prepare_joke_body(
+            request.form.get("body", "").strip(), request.form.get("body_format"), current_user
+        )
         cat_id, sub_id = resolve_category_subcategory(
             request.form.get("category_id"),
             request.form.get("subcategory_id"),

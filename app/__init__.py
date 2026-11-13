@@ -270,6 +270,12 @@ def create_app():
                     conn.exec_driver_sql(
                         "ALTER TABLE site_settings ADD COLUMN marquee_theme_json TEXT"
                     )
+                for formatting_table in ("jokes", "joke_drafts"):
+                    formatting_cols = {row[1] for row in conn.exec_driver_sql(
+                        f"PRAGMA table_info({formatting_table})"
+                    ).fetchall()}
+                    if formatting_cols and "body_format" not in formatting_cols:
+                        conn.exec_driver_sql(f"ALTER TABLE {formatting_table} ADD COLUMN body_format TEXT")
                 qcols = {
                     row[1]
                     for row in conn.exec_driver_sql(
@@ -557,6 +563,9 @@ def create_app():
             except Exception:
                 has_unseen = False
         return dict(has_unseen_followed_comments=has_unseen)
+
+    from .joke_formatting import render_joke_body
+    app.jinja_env.filters["joke_body"] = render_joke_body
 
     from .user_display import register_user_display
     register_user_display(app)

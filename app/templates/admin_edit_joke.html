@@ -2,12 +2,14 @@
 {% block title %}Edit joke {{ joke.id }}{% endblock %}
 
 {% block content %}
+{% include "joke_editor_assets.html" %}
 <h2>Edit joke #{{ joke.id }}</h2>
 
  <form method="post" autocomplete="off">
     <div class="mb-3">
       <label class="form-label">Body</label>
-      <textarea name="body" class="form-control" rows="6">{{ joke.body }}</textarea>
+      <input type="hidden" name="body_format" disabled value="{{ joke.body_format or '' }}">
+    <textarea data-joke-editor data-legacy-html="{{ '1' if joke.author and (joke.author.is_admin or joke.author.is_moderator) else '0' }}" name="body" class="form-control" rows="6">{{ joke.body }}</textarea>
     </div>
 
     <div class="mb-3">
