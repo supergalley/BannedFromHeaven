@@ -320,16 +320,6 @@ def users():
     return render_template("admin_users.html", users=users, sort=sort, direction=direction)
 
 
-@admin_bp.route("/users/<int:user_id>/reset-password", methods=["POST"])
-@admin_required
-def reset_user_password(user_id):
-    user = User.query.get_or_404(user_id)
-    user.set_password("ChangeMe123")
-    db.session.commit()
-    flash(f"Password reset for {user.username}.", "success")
-    return redirect(url_for("admin.users"))
-
-
 @admin_bp.route("/users/<int:user_id>/edit", methods=["GET", "POST"])
 @admin_required
 def edit_user(user_id):
