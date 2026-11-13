@@ -2412,7 +2412,7 @@ document.addEventListener("click", function(e) {
 </script>
 {% if current_user.is_authenticated and push_enabled_user %}
 <script type="application/json" id="bfh-push-config">{{ {'status': url_for('push.status'), 'subscribe': url_for('push.subscribe'), 'unsubscribe': url_for('push.unsubscribe'), 'logout': url_for('auth.logout')}|tojson }}</script>
-<script src="{{ url_for('static', filename='push.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='push.js') }}?v=2" defer></script>
 {% endif %}
 </body>
 </html>

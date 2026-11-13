@@ -5,18 +5,22 @@
   <h1 class="h3">Notifications</h1>
   <p>Just the worthwhile updates. Notifications are optional and enabled separately on each device.</p>
   <ul>
-    <li>A new inbox message. The app icon badge counts unread messages.</li>
+    <li>A new inbox message, with an app icon badge where supported.</li>
     <li>A new warning strike or an account suspension.</li>
     <li>Your joke reaches 10 points for the first time. One celebration per joke.</li>
   </ul>
   <p>Message contents and moderation reasons stay inside the site.</p>
-  <div class="alert alert-secondary">On iPhone/iPad (iOS 16.4 or later), open the site in Safari, tap <strong>Share → Add to Home Screen</strong>, then launch it from the BFH icon. Return here and tap Enable notifications.</div>
+  <div class="alert alert-secondary">
+    <p class="mb-2"><strong>iPhone/iPad:</strong> On iOS 16.4 or later, open BFH in Safari, tap <strong>Share → Add to Home Screen</strong>, then launch it from the BFH icon.</p>
+    <p class="mb-2"><strong>Android + Chrome:</strong> Open BFH in Chrome. For an app icon, use Chrome’s <strong>⋮ menu → Add to Home screen / Install app</strong>, then open BFH from that icon. You can also enable notifications directly in Chrome.</p>
+    <p class="mb-0">On either device, return to this page, tap <strong>Enable notifications</strong> and choose <strong>Allow</strong> when asked.</p>
+  </div>
   <p id="push-status" role="status" aria-live="polite">Checking this device…</p>
   <div class="d-flex gap-2 flex-wrap">
     <button id="push-enable" type="button" class="btn btn-primary" disabled>Enable notifications</button>
     <button id="push-disable" type="button" class="btn btn-outline-light" disabled>Disable on this device</button>
   </div>
-  <p class="small text-muted mt-3">The badge refreshes when you open the app or receive an alert. Reading messages elsewhere may leave this device’s badge unchanged until its next update. Your device controls notification permission, sounds, previews and icon badges.</p>
+  <p class="small text-muted mt-3">The badge refreshes when you open the app or receive an alert. Reading messages elsewhere may leave this device’s badge unchanged until its next update. Android may show a notification dot or badge rather than an exact unread-message count. Your device controls notification permission, sounds, previews and icon badges.</p>
   <noscript><p class="alert alert-warning mt-3">Enable JavaScript to manage notifications on this device.</p></noscript>
 </section></div>
 {% endblock %}

@@ -25,7 +25,7 @@
     try{
       const data=await api(config.status+'?device='+await device());if(generation!==statusGeneration)return;state=data;csrf=state.csrf;
       await badge(state.enabled?state.badge:0);
-      if(status){if(ios&&!standalone)text('On iPhone/iPad, use Share → Add to Home Screen, then open BFH from its icon to enable notifications.');else if(!supported)text('This browser does not support Web Push notifications.');else if(Notification.permission==='denied')text('Notifications are blocked. Allow them in your browser or iPhone notification settings, then return here.');else text(state.enabled?'Notifications are enabled on this device.':'Notifications are off on this device.');}
+      if(status){if(ios&&!standalone)text('On iPhone/iPad, use Share → Add to Home Screen, then open BFH from its icon to enable notifications.');else if(!supported)text('This browser does not support Web Push notifications.');else if(Notification.permission==='denied')text('Notifications are blocked. Allow them in your browser or device notification settings, then return here.');else text(state.enabled?'Notifications are enabled on this device.':'Notifications are off on this device.');}
       controls();
     }catch(error){text(error.message);}
   }
