@@ -1683,9 +1683,12 @@ def user_profile(username):
         Comment.joke_id.in_(approved_jokes_query().with_entities(Joke.id)),
     ).count()
 
+    from .user_display import ban_remaining_label
+    own_ban_remaining = ban_remaining_label(user.ban_until) if current_user.is_authenticated and current_user.id == user.id and user.is_banned() else None
     resp = make_response(
         render_template(
             "user_profile.html",
+            own_ban_remaining=own_ban_remaining,
             profile_user=user,
             jokes=jokes,
             public_post_count=len(jokes),
@@ -1693,6 +1696,8 @@ def user_profile(username):
             sort=sort,
         )
     )
+    if current_user.is_authenticated and current_user.id == user.id:
+        resp.headers["Cache-Control"] = "private, no-store"
     resp.set_cookie(
         PROFILE_SORT_COOKIE,
         sort,

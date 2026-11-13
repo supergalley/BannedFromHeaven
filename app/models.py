@@ -179,6 +179,9 @@ class User(UserMixin, db.Model):
         "UserWarning", foreign_keys="UserWarning.user_id", backref="user", lazy=True, cascade="all, delete-orphan"
     )
 
+    push_subscriptions = db.relationship("PushSubscription", cascade="all, delete-orphan")
+    push_events = db.relationship("PushEvent", cascade="all, delete-orphan")
+
     password_reset_requests = db.relationship("PasswordResetRequest", cascade="all, delete-orphan")
 
     arcade_runs = db.relationship("ArcadeRun", cascade="all, delete-orphan", backref="player")
@@ -1178,3 +1181,49 @@ class PasswordResetRequest(db.Model):
     password_fingerprint = db.Column(db.String(64))
     expires_at = db.Column(db.DateTime)
     used_at = db.Column(db.DateTime)
+
+
+class PushIdentity(db.Model):
+    """Persistent signing key; survives restarts without environment changes."""
+    __tablename__ = "push_identity"
+    id = db.Column(db.Integer, primary_key=True)
+    private_key = db.Column(db.Text, nullable=False)
+    public_key = db.Column(db.String(100), nullable=False)
+
+
+class PushSubscription(db.Model):
+    __tablename__ = "push_subscriptions"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    endpoint_hash = db.Column(db.String(64), unique=True, nullable=False)
+    endpoint = db.Column(db.Text, nullable=False)
+    p256dh = db.Column(db.String(100), nullable=False)
+    auth = db.Column(db.String(32), nullable=False)
+    deliveries = db.relationship("PushDelivery", cascade="all, delete-orphan")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class PushEvent(db.Model):
+    __tablename__ = "push_events"
+    id = db.Column(db.Integer, primary_key=True)
+    deliveries = db.relationship("PushDelivery", cascade="all, delete-orphan")
+    event_key = db.Column(db.String(180), unique=True, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    kind = db.Column(db.String(20), nullable=False)
+    source_id = db.Column(db.Integer, nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    body = db.Column(db.String(250), nullable=False)
+    url = db.Column(db.String(300), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class PushDelivery(db.Model):
+    __tablename__ = "push_deliveries"
+    __table_args__ = (UniqueConstraint("event_id", "subscription_id", name="uq_push_delivery"),)
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey("push_events.id", ondelete="CASCADE"), nullable=False)
+    subscription_id = db.Column(db.Integer, db.ForeignKey("push_subscriptions.id", ondelete="CASCADE"), nullable=False, index=True)
+    attempts = db.Column(db.Integer, default=0, nullable=False)
+    due_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    lease_until = db.Column(db.DateTime, nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True, index=True)

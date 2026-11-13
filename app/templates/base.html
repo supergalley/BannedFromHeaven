@@ -1177,6 +1177,7 @@
                 Hide Marquee
               </button>
               {% endif %}
+              {% if push_enabled_user %}<a href="{{ url_for('push.settings') }}" class="btn btn-sm btn-outline-light w-100 mb-2">🔔 Notifications</a>{% endif %}
               <a href="{{ url_for('main.change_password') }}" class="btn btn-sm btn-outline-light w-100 mb-2">
                 Change Password
               </a>
@@ -2409,5 +2410,9 @@ document.addEventListener("click", function(e) {
     }
   });
 </script>
+{% if current_user.is_authenticated and push_enabled_user %}
+<script type="application/json" id="bfh-push-config">{{ {'status': url_for('push.status'), 'subscribe': url_for('push.subscribe'), 'unsubscribe': url_for('push.unsubscribe'), 'logout': url_for('auth.logout')}|tojson }}</script>
+<script src="{{ url_for('static', filename='push.js') }}?v=1" defer></script>
+{% endif %}
 </body>
 </html>

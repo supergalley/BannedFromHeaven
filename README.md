@@ -228,3 +228,26 @@ continue using plain text. If the editor fails to load, the textarea remains usa
 Rollback: reverting the formatting commit requires no database downgrade. The
 previous code ignores the extra nullable columns and displays the plain-text body.
 Keep those columns when rolling back so formatting can return after redeployment.
+
+Web Push notifications are opt-in per device at `/notifications` (account menu). Alerts open the relevant conversation,
+joke, or the recipient’s private profile account-status section.
+They cover inbox messages, new warning strikes/bans, and a joke's first score of
+10 or more. `PushEvent` records milestones permanently, so score bounces do not
+repeat them. Existing achievements are baselined on startup without sending alerts.
+`PushDelivery` targets devices subscribed at event time, commits alongside the
+original action, and is delivered by background threads in the web workers using
+short database leases. Temporary failures retry up to five times; expired device
+subscriptions are removed. No external notification vendor/account is required.
+VAPID signing keys are generated once in `push_identity` and survive restarts;
+treat database backups as sensitive and do not publish those keys or subscriptions.
+The image includes `pywebpush`; rebuild it when updating `requirements.txt`.
+
+The service worker is served at `/push-sw.js` with root scope. It handles alerts,
+clicks and app badges only; it never caches pages or intercepts browsing. Notification
+previews omit message contents and private moderation reasons. App icon badges
+count unread inbox messages and refresh on app opening, while visible, or with the
+next visible alert. iOS forbids silent badge-only push updates, so another device's
+badge may lag after messages are read elsewhere. Home Screen installation and
+explicit permission are required on iOS 16.4+. Signing out disconnects the current
+device. Reverting the code leaves only additional tables; old code
+continues to run and the inactive service worker does not affect page requests.

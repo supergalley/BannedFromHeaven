@@ -247,6 +247,14 @@ def create_app():
             db.session.rollback()
         try:
             with db.engine.begin() as conn:
+                conn.exec_driver_sql("""INSERT OR IGNORE INTO push_events
+                    (event_key,user_id,kind,source_id,title,body,url,created_at)
+                    SELECT 'joke-ten:' || id,user_id,'milestone',id,'','','',CURRENT_TIMESTAMP
+                    FROM jokes WHERE score >= 10""")
+        except Exception:
+            db.session.rollback()
+        try:
+            with db.engine.begin() as conn:
                 cols = {
                     row[1]
                     for row in conn.exec_driver_sql(
@@ -520,6 +528,18 @@ def create_app():
     app.register_blueprint(forum_bp, url_prefix="/forum")
     app.register_blueprint(admin_bp)
     app.register_blueprint(games_bp)
+    from .push import push_bp
+    app.register_blueprint(push_bp)
+    from . import push_events  # Register transactional outbox listeners once.
+
+    @app.before_request
+    def ensure_push_dispatcher():
+        from .push_worker import start_dispatcher
+        start_dispatcher(app)
+
+    @app.context_processor
+    def inject_push_config():
+        return {"push_enabled_user": current_user.is_authenticated}
 
     @app.context_processor
     def inject_forum_unread_flag():
@@ -602,7 +622,7 @@ def create_app():
             return
         if ep.startswith("admin."):
             return
-        if ep.startswith("auth."):
+        if ep.startswith("auth.") or ep.startswith("push."):
             return
         if request.method in ("POST", "PUT", "DELETE", "PATCH"):
             flash(f"Your account is banned until {current_user.ban_until}.", "danger")

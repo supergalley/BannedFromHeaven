@@ -5,3 +5,5 @@ flask_login
 gunicorn
 pillow
 requests
+
+pywebpush==2.5.0

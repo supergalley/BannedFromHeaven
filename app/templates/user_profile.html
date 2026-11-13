@@ -32,6 +32,26 @@
     <span class="badge bg-warning text-dark ms-2" style="font-size: 0.45em; vertical-align: middle;">Review All Jokes</span>
   {% endif %}
 </h2>
+{% if current_user.is_authenticated and current_user.id == profile_user.id %}
+<section id="account-status" class="border border-secondary rounded p-3 mb-3" style="scroll-margin-top: 6rem;" aria-label="Your account status">
+  <h3 class="h6">Your account status</h3>
+  {% if profile_user.is_banned() %}
+    <p class="mb-1"><span class="badge rounded-pill bg-danger" title="{{ own_ban_remaining }}" aria-label="{{ own_ban_remaining }}">Ban</span> {{ own_ban_remaining }}</p>
+    <p class="small mb-1">Until {{ profile_user.ban_until.strftime('%H:%M %d-%m-%Y') }} UTC.</p>
+    {% if profile_user.ban_reason %}<p class="small mb-2">{{ profile_user.ban_reason }}</p>{% endif %}
+  {% endif %}
+  {% set own_strikes = profile_user.warnings|selectattr('is_active')|list %}
+  {% if own_strikes %}
+    <p class="mb-1"><span class="badge rounded-pill {{ 'bg-danger' if own_strikes|length >= 3 else 'bg-warning text-dark' if own_strikes|length == 2 else 'bg-success' }}">Strike</span> {{ own_strikes|length }} active warning strike{{ 's' if own_strikes|length != 1 else '' }}.</p>
+    {% for warning in own_strikes|sort(attribute='created_at', reverse=true) %}
+      <p class="small mb-1">{{ warning.created_at.strftime('%H:%M %d-%m-%Y') }} UTC · {{ warning.reason }}</p>
+    {% endfor %}
+  {% elif not profile_user.is_banned() %}
+    <p class="small mb-1">No active strikes or suspension.</p>
+  {% endif %}
+  {% if own_strikes or profile_user.is_banned() %}<a class="small" href="{{ url_for('main.inbox') }}">Open inbox for moderation notices</a>{% endif %}
+</section>
+{% endif %}
 <div class="row mb-3">
   <div class="col-md-3 mb-3">
     {% if profile_user.profile and profile_user.profile.profile_picture %}

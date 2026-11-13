@@ -753,6 +753,8 @@ def login():
 @auth_bp.route("/logout")
 @login_required
 def logout():
+    from .push import remove_device
+    remove_device(current_user.id, session.pop("push_endpoint_hash", ""))
     logout_user()
     return redirect(url_for("main.index"))
 
